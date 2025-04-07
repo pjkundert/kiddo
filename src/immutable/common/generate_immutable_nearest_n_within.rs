@@ -5,32 +5,50 @@ macro_rules! generate_immutable_nearest_n_within {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn nearest_n_within<D>(&self, query: &[A; K], dist: A, max_items: NonZero<usize>, sorted: bool) -> Vec<NearestNeighbour<A, T>>
+            pub fn nearest_n_within<D>(
+		&self,
+		query: &[A; K],
+		dist: A,
+		max_items: NonZero<usize>,
+		sorted: bool
+	    ) -> Vec<NearestNeighbour<A, T>>
             where
                 D: DistanceMetric<A, K>,
             {
                 let max_items = max_items.into();
-
-                if sorted && max_items < usize::MAX {
+		let unit = [A::one(); K];
+                let result = if sorted && max_items < usize::MAX {
                     if max_items <= MAX_VEC_RESULT_SIZE {
-                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbour<A, T>>>(query, dist, max_items, sorted)
+                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items, sorted)
                     } else {
-                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbour<A, T>>>(query, dist, max_items, sorted)
+                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items, sorted)
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbour<A,T>>>(query, dist, 0, sorted)
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0, sorted)
+                };
+
+                if sorted {
+                    result.into_sorted_vec()
+                } else {
+                    result.into_vec()
                 }
             }
 
-            fn nearest_n_within_stub<D: DistanceMetric<A, K>, H: ResultCollection<A, T>>(
-                &self, query: &[A; K], dist: A, res_capacity: usize, sorted: bool
-            ) -> Vec<NearestNeighbour<A, T>> {
-                let mut matching_items = H::new_with_capacity(res_capacity);
+            fn nearest_n_within_stub<D: DistanceMetric<A, K>, R: ResultCollection<A, T, K>>(
+                &self,
+		query: &[A; K],
+		scale: &[A; K],
+		dist: A,
+		res_capacity: usize,
+		sorted: bool
+            ) -> ResultCollection<A, T, K> {
+                let mut matching_items = R::new_with_capacity(res_capacity);
                 let mut off = [A::zero(); K];
 
                 #[cfg(not(feature = "modified_van_emde_boas"))]
-                self.nearest_n_within_recurse::<D, H>(
+                self.nearest_n_within_recurse::<D, R>(
                     query,
+		    scale,
                     dist,
                     1,
                     0,
@@ -42,8 +60,9 @@ macro_rules! generate_immutable_nearest_n_within {
                 );
 
                 #[cfg(feature = "modified_van_emde_boas")]
-                self.nearest_n_within_recurse::<D, H>(
+                self.nearest_n_within_recurse::<D, R>(
                     query,
+		    scale,
                     dist,
                     0,
                     0,
@@ -55,11 +74,7 @@ macro_rules! generate_immutable_nearest_n_within {
                     0,
                 );
 
-                if sorted {
-                    matching_items.into_sorted_vec()
-                } else {
-                    matching_items.into_vec()
-                }
+		matching_items
             }
 
             #[allow(clippy::too_many_arguments)]
@@ -67,6 +82,7 @@ macro_rules! generate_immutable_nearest_n_within {
             fn nearest_n_within_recurse<D, R>(
                 &self,
                 query: &[A; K],
+                scale: &[A; K],
                 radius: A,
                 stem_idx: usize,
                 split_dim: usize,
@@ -77,7 +93,7 @@ macro_rules! generate_immutable_nearest_n_within {
                 mut leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
-                R: ResultCollection<A, T>,
+                R: ResultCollection<A, T, K>,
             {
                 if level > self.max_stem_level as usize || self.stems.is_empty() {
                     self.search_leaf_for_nearest_n_within::<D, R>(query, radius, matching_items, leaf_idx as usize);
@@ -103,6 +119,7 @@ macro_rules! generate_immutable_nearest_n_within {
 
                 self.nearest_n_within_recurse::<D, R>(
                     query,
+                    scale,
                     radius,
                     closer_node_idx,
                     next_split_dim,
@@ -137,6 +154,7 @@ macro_rules! generate_immutable_nearest_n_within {
             fn nearest_n_within_recurse<D, R>(
                 &self,
                 query: &[A; K],
+                scale: &[A; K],
                 radius: A,
                 stem_idx: u32,
                 split_dim: usize,
@@ -148,7 +166,7 @@ macro_rules! generate_immutable_nearest_n_within {
                 mut leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
-                R: ResultCollection<A, T>,
+                R: ResultCollection<A, T, K>,
             {
                 use cmov::Cmov;
                 use $crate::modified_van_emde_boas::modified_van_emde_boas_get_child_idx_v2_branchless;
@@ -179,6 +197,7 @@ macro_rules! generate_immutable_nearest_n_within {
 
                 self.nearest_n_within_recurse::<D, R>(
                     query,
+		    scale,
                     radius,
                     closer_node_idx,
                     next_split_dim,
@@ -190,12 +209,13 @@ macro_rules! generate_immutable_nearest_n_within {
                     closer_leaf_idx,
                 );
 
-                rd = Axis::rd_update(rd, D::dist1(new_off, old_off));
+                rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
                 if rd <= radius && rd < matching_items.max_dist() {
                     off[split_dim] = new_off;
                     self.nearest_n_within_recurse::<D, R>(
                         query,
+			scale,
                         radius,
                         further_node_idx,
                         next_split_dim,
@@ -214,17 +234,19 @@ macro_rules! generate_immutable_nearest_n_within {
             fn search_leaf_for_nearest_n_within<D, R>(
                 &self,
                 query: &[A; K],
+                scale: &[A; K],
                 radius: A,
                 results: &mut R,
                 leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
-                R: ResultCollection<A, T>,
+                R: ResultCollection<A, T, K>,
             {
                 let leaf_slice = self.get_leaf_slice(leaf_idx);
 
-                leaf_slice.nearest_n_within::<D, R>(
+                leaf_slice.nearest_n_within_points::<D, R>(
                     query,
+                    scale,
                     radius,
                     results,
                 );

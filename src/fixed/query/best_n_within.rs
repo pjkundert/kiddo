@@ -2,14 +2,14 @@ use az::{Az, Cast};
 use std::collections::BinaryHeap;
 use std::ops::Rem;
 
-use crate::best_neighbour::BestNeighbour;
+use crate::best_neighbour::{BestNeighbour, BestNeighbourPoint};
 use crate::fixed::kdtree::{Axis, KdTree, LeafNode};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 
 use crate::generate_best_n_within;
 
-impl<A: Axis, T: Content, const K: usize, const B: usize, IDX: Index<T = IDX>>
+impl<A: Axis + num_traits::One, T: Content, const K: usize, const B: usize, IDX: Index<T = IDX>>
     KdTree<A, T, K, B, IDX>
 where
     usize: Cast<IDX>,

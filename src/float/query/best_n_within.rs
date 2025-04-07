@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::collections::BinaryHeap;
 use std::ops::Rem;
 
-use crate::best_neighbour::BestNeighbour;
+use crate::best_neighbour::{BestNeighbour, BestNeighbourPoint};
 use crate::float::kdtree::{Axis, KdTree, LeafNode};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};

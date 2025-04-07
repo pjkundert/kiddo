@@ -1,11 +1,11 @@
-//! Contains a selection of distance metrics that can be chosen from to measure the distance
-//! between two points stored inside the tree.
+//! Contains a selection of distance metrics that can be chosen from to measure the distance between
+//! two points stored inside the tree.  Assumes types that have NaN, and saturate to +/- inf.
 
 // #[cfg(any(target_arch = "x86_64"))]
 // use std::arch::x86_64::*;
-
 use crate::float::kdtree::Axis;
 use crate::traits::DistanceMetric;
+
 
 /// Returns the Manhattan / "taxi cab" distance between two points.
 ///
@@ -19,25 +19,14 @@ use crate::traits::DistanceMetric;
 /// use kiddo::traits::DistanceMetric;
 /// use kiddo::Manhattan;
 ///
-/// assert_eq!(0f32, Manhattan::dist(&[0f32, 0f32], &[0f32, 0f32]));
-/// assert_eq!(1f32, Manhattan::dist(&[0f32, 0f32], &[1f32, 0f32]));
-/// assert_eq!(2f32, Manhattan::dist(&[0f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(0f32, Manhattan::dist(&[0f32, 0f32], &[0f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(1f32, Manhattan::dist(&[0f32, 0f32], &[1f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(2f32, Manhattan::dist(&[0f32, 0f32], &[1f32, 1f32], &[1f32, 1f32]));
 /// ```
 pub struct Manhattan {}
 
 impl<A: Axis, const K: usize> DistanceMetric<A, K> for Manhattan {
-    #[inline]
-    fn dist(a: &[A; K], b: &[A; K]) -> A {
-        a.iter()
-            .zip(b.iter())
-            .map(|(&a_val, &b_val)| (a_val - b_val).abs())
-            .fold(A::zero(), std::ops::Add::add)
-    }
-
-    #[inline]
-    fn dist1(a: A, b: A) -> A {
-        (a - b).abs()
-    }
+    // The default implementation is a Manhattan distance metric
 }
 
 /// Returns the squared euclidean distance between two points.
@@ -53,23 +42,45 @@ impl<A: Axis, const K: usize> DistanceMetric<A, K> for Manhattan {
 /// use kiddo::traits::DistanceMetric;
 /// use kiddo::SquaredEuclidean;
 ///
-/// assert_eq!(0f32, SquaredEuclidean::dist(&[0f32, 0f32], &[0f32, 0f32]));
-/// assert_eq!(1f32, SquaredEuclidean::dist(&[0f32, 0f32], &[1f32, 0f32]));
-/// assert_eq!(2f32, SquaredEuclidean::dist(&[0f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(0f32, SquaredEuclidean::dist(&[0f32, 0f32], &[0f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(1f32, SquaredEuclidean::dist(&[0f32, 0f32], &[1f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(2f32, SquaredEuclidean::dist(&[0f32, 0f32], &[1f32, 1f32], &[1f32, 1f32]));
 /// ```
 pub struct SquaredEuclidean {}
 
 impl<A: Axis, const K: usize> DistanceMetric<A, K> for SquaredEuclidean {
     #[inline]
-    fn dist(a: &[A; K], b: &[A; K]) -> A {
-        a.iter()
-            .zip(b.iter())
-            .map(|(&a_val, &b_val)| (a_val - b_val) * (a_val - b_val))
-            .fold(A::zero(), std::ops::Add::add)
+    fn accumulate(acc: A, dist: A) -> A {
+	acc.saturating_add(dist.saturating_mul(dist))
     }
+}
 
+/// Returns the maximal axis distance between two points.
+///
+/// Implements a rectangular region with different ranges on each axis.
+///
+/// re-exported as `kiddo::Rectangular` for convenience
+///
+/// # Examples
+///
+/// ```rust
+/// use kiddo::traits::DistanceMetric;
+/// use kiddo::Rectangular;
+///
+/// assert_eq!(0f32, Rectangular::dist(&[0f32, 0f32], &[0f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(1f32, Rectangular::dist(&[0f32, 0f32], &[1f32, 0f32], &[1f32, 1f32]));
+/// assert_eq!(1f32, Rectangular::dist(&[0f32, 0f32], &[1f32, 1f32], &[1f32, 1f32]));
+/// ```
+pub struct Rectangular {}
+
+impl<A: Axis, const K: usize> DistanceMetric<A, K> for Rectangular {
+    /// Implements a simple max calculation; assumes the default dist1 is an absolute distance metric
     #[inline]
-    fn dist1(a: A, b: A) -> A {
-        (a - b) * (a - b)
+    fn accumulate(acc: A, dist: A) -> A {
+	if dist > acc {
+	    dist
+	} else {
+	    acc  // NaN doesn't affect accumulation (and should be avoided by dist1 anyway)
+	}
     }
 }

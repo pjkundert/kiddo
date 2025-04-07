@@ -3,7 +3,7 @@ use std::ops::Rem;
 
 use crate::float::kdtree::{Axis, KdTree, LeafNode};
 use crate::generate_nearest_one;
-use crate::nearest_neighbour::NearestNeighbour;
+use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 

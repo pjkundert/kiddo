@@ -1,6 +1,7 @@
 //! Defines different distance metrics, in simplest case it defines the
 //! euclidean distance which is no more than the square root of the sum of the
-//! squares of the distances in each dimension.
+//! squares of the distances in each dimension.  Assumes fixed::... types that
+//! do not have +/- inf, and may easily overflow/saturate.
 
 // #[cfg(any(target_arch = "x86_64"))]
 // use std::arch::x86_64::*;
@@ -33,28 +34,7 @@ use crate::traits::DistanceMetric;
 pub struct Manhattan {}
 
 impl<A: Axis, const K: usize> DistanceMetric<A, K> for Manhattan {
-    #[inline]
-    fn dist(a: &[A; K], b: &[A; K]) -> A {
-        a.iter()
-            .zip(b.iter())
-            .map(|(&a_val, &b_val)| {
-                if a_val > b_val {
-                    a_val - b_val
-                } else {
-                    b_val - a_val
-                }
-            })
-            .fold(A::ZERO, |a, b| a.saturating_add(b))
-    }
-
-    #[inline]
-    fn dist1(a: A, b: A) -> A {
-        if a > b {
-            a - b
-        } else {
-            b - a
-        }
-    }
+    // The default implementation is a Manhattan distance metric
 }
 
 /// Returns the squared euclidean distance between two points.
@@ -84,19 +64,42 @@ pub struct SquaredEuclidean {}
 
 impl<A: Axis, const K: usize> DistanceMetric<A, K> for SquaredEuclidean {
     #[inline]
-    fn dist(a: &[A; K], b: &[A; K]) -> A {
-        a.iter()
-            .zip(b.iter())
-            .map(|(&a_val, &b_val)| {
-                let diff: A = a_val.dist(b_val);
-                diff * diff
-            })
-            .fold(A::ZERO, |a, b| a.saturating_add(b))
+    fn accumulate(acc: A, dist: A) -> A {
+	acc.saturating_add(dist.saturating_mul(dist))
     }
+}
 
+/// Returns the maximal axis distance between two points.
+///
+/// Implements a rectangular region with different ranges on each axis.
+///
+/// # Examples
+///
+/// ```rust
+/// use fixed::types::extra::U0;
+/// use fixed::FixedU16;
+/// use kiddo::traits::DistanceMetric;
+/// use kiddo::fixed::distance::SquaredEuclidean;
+/// type Fxd = FixedU16<U0>;
+///
+/// let ZERO = Fxd::from_num(0);
+/// let ONE = Fxd::from_num(1);
+/// let TWO = Fxd::from_num(2);
+/// let EIGHT = Fxd::from_num(8);
+///
+/// assert_eq!(Rectangular::dist(&[ZERO, ZERO], &[ZERO, ZERO]), &[ONE, ONE], ZERO);
+/// assert_eq!(Rectangular::dist(&[ZERO, ZERO], &[ONE, ZERO]), &[ONE, ONE], ONE);
+/// assert_eq!(Rectangular::dist(&[ZERO, ZERO], &[TWO, TWO]), &[ONE, ONE], TWO);
+/// ```
+pub struct Rectangular {}
+
+impl<A: Axis, const K: usize> DistanceMetric<A, K> for Rectangular {
     #[inline]
-    fn dist1(a: A, b: A) -> A {
-        let diff: A = a.dist(b);
-        diff * diff
+    fn accumulate(acc: A, dist: A) -> A {
+	if dist > acc {
+	    dist
+	} else {
+	    acc
+	}
     }
 }

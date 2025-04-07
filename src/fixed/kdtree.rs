@@ -6,6 +6,7 @@
 use az::{Az, Cast};
 use divrem::DivCeil;
 use fixed::traits::Fixed;
+use num_traits::{Zero, One};
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 
@@ -21,12 +22,13 @@ use serde::{Deserialize, Serialize};
 /// Axis trait represents the traits that must be implemented
 /// by the type that is used as the first generic parameter, `A`,
 /// on [`FixedKdTree`](crate::fixed::kdtree::KdTree). A type from the [`Fixed`](https://docs.rs/fixed/1.21.0/fixed) crate will implement
-/// all of the traits required by Axis. For example [`FixedU16<U14>`](https://docs.rs/fixed/1.21.0/fixed/struct.FixedU16.html).
-pub trait Axis: Fixed + Default + Debug + Copy + Sync + Send {
+/// all of the traits required by Axis. For example [`FixedU16<U14>`](https://docs.rs/fixed/1.21.0/fixed/struct.FixedU16.html).  We need Zero and One
+/// in order to implement some of the tree "nearest" searches.
+pub trait Axis: Fixed + Zero + One + Default + Debug + Copy + Sync + Send {
     /// used in query methods to update the rd value. Basically a saturating add for Fixed and an add for Float
     fn rd_update(rd: Self, delta: Self) -> Self;
 }
-impl<T: Fixed + Default + Debug + Copy + Sync + Send> Axis for T {
+impl<T: Fixed + Zero + One + Default + Debug + Copy + Sync + Send> Axis for T {
     #[inline]
     fn rd_update(rd: Self, delta: Self) -> Self {
         rd.saturating_add(delta)

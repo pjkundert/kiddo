@@ -14,12 +14,30 @@ macro_rules! generate_best_n_within {
     where
         D: DistanceMetric<A, K>,
     {
+	let unit = [A::one(); K];
+	self.best_n_within_points::<D>(query, &unit, dist, max_qty)
+	    .into_iter()
+	    .map(|bnp| bnp.neighbour)
+    }
+
+    #[inline]
+    pub fn best_n_within_points<D>(
+        &self,
+        query: &[A; K],
+	scale: &[A; K],
+        dist: A,
+        max_qty: usize,
+    ) -> impl Iterator<Item = BestNeighbourPoint<A, T, K>>
+    where
+        D: DistanceMetric<A, K>,
+    {
         let mut off = [A::zero(); K];
-        let mut best_items: BinaryHeap<BestNeighbour<A, T>> = BinaryHeap::new();
+        let mut best_items: BinaryHeap<BestNeighbourPoint<A, T, K>> = BinaryHeap::new();
 
         unsafe {
             self.best_n_within_recurse::<D>(
                 query,
+                scale,
                 dist,
                 max_qty,
                 self.root_index,
@@ -37,11 +55,12 @@ macro_rules! generate_best_n_within {
     unsafe fn best_n_within_recurse<D>(
         &self,
         query: &[A; K],
+	scale: &[A; K],
         radius: A,
         max_qty: usize,
         curr_node_idx: IDX,
         split_dim: usize,
-        best_items: &mut BinaryHeap<BestNeighbour<A, T>>,
+        best_items: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
         off: &mut [A; K],
         rd: A,
     ) where
@@ -64,6 +83,7 @@ macro_rules! generate_best_n_within {
 
             self.best_n_within_recurse::<D>(
                 query,
+		scale,
                 radius,
                 max_qty,
                 closer_node_idx,
@@ -73,12 +93,13 @@ macro_rules! generate_best_n_within {
                 rd,
             );
 
-            rd = Axis::rd_update(rd, D::dist1(new_off, old_off));
+            rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
             if rd <= radius {
                 off[split_dim] = new_off;
                 self.best_n_within_recurse::<D>(
                     query,
+		    scale,
                     radius,
                     max_qty,
                     further_node_idx,
@@ -94,16 +115,17 @@ macro_rules! generate_best_n_within {
                 .leaves
                 .get_unchecked((curr_node_idx - IDX::leaf_offset()).az::<usize>());
 
-            Self::process_leaf_node::<D>(query, radius, max_qty, best_items, leaf_node);
+            Self::process_leaf_node::<D>(query, scale, radius, max_qty, best_items, leaf_node);
         }
     }
 
     #[inline]
     unsafe fn process_leaf_node<D>(
         query: &[A; K],
+        scale: &[A; K],
         radius: A,
         max_qty: usize,
-        best_items: &mut BinaryHeap<BestNeighbour<A, T>>,
+        best_items: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
         leaf_node: &$leafnode<A, T, K, B, IDX>,
     ) where
         D: DistanceMetric<A, K>,
@@ -112,30 +134,32 @@ macro_rules! generate_best_n_within {
             .content_points
             .iter()
             .take(leaf_node.size.az::<usize>())
-            .map(|entry| D::dist(query, entry))
+            .map(|entry| (D::dist(query, entry, scale),entry))
             .enumerate()
-            .filter(|(_, distance)| *distance <= radius)
-            .for_each(|(idx, distance)| {
-                Self::get_item_and_add_if_good(max_qty, best_items, leaf_node, idx, distance)
+            .filter(|(_, (distance,entry))| *distance <= radius)
+            .for_each(|(idx, (distance, entry))| {
+                Self::get_item_and_add_if_good(max_qty, best_items, leaf_node, idx, distance, entry)
             });
     }
 
     #[inline]
     unsafe fn get_item_and_add_if_good(
         max_qty: usize,
-        best_items: &mut BinaryHeap<BestNeighbour<A, T>>,
+        best_items: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
         leaf_node: &$leafnode<A, T, K, B, IDX>,
         idx: usize,
         distance: A,
+	entry: &[A; K]
     ) {
         let item = *leaf_node.content_items.get_unchecked(idx.az::<usize>());
         if best_items.len() < max_qty {
-            best_items.push(BestNeighbour{ distance, item });
+            best_items.push(BestNeighbourPoint{ neighbour: BestNeighbour{ distance, item },point: entry.clone()})
         } else {
             let mut top = best_items.peek_mut().unwrap();
-            if item < top.item {
-                top.item = item;
-                top.distance = distance;
+            if item < top.neighbour.item {
+                top.neighbour.item = item;
+                top.neighbour.distance = distance;
+		top.point.copy_from_slice(entry);
             }
         }
     }

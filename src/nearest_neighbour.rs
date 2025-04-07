@@ -5,6 +5,8 @@ use std::cmp::Ordering;
 /// Represents an entry in the results of a nearest neighbour query, with `distance` being the distance of this
 /// particular item from the query point, and `item` being the stored item index that was found
 /// as part of the query.
+///
+/// Ordering is based on the value of `distance`.
 #[derive(Debug, Copy, Clone)]
 pub struct NearestNeighbour<A, T> {
     /// the distance of the found item from the query point according to the supplied distance metric
@@ -42,6 +44,34 @@ impl<A, T: Content> From<NearestNeighbour<A, T>> for (A, T) {
         (elem.distance, elem.item)
     }
 }
+
+/// Capture a NearestNeighbour and its point, but delegate PartialOrd, PartialEq, Ord and Eq to the
+/// NearestNeighbour (since A is often unable to Ord)
+pub struct NearestNeighbourPoint<A, T, const K: usize> {
+    pub neighbour: NearestNeighbour<A, T>,
+    pub point: [A; K],
+}
+// Implement ordering that delegates to NearestNeighbour
+impl<A: PartialOrd, T: Content, const K: usize> Ord for NearestNeighbourPoint<A, T, K> {
+    fn cmp(&self, other: &Self) -> Ordering {
+	self.neighbour.cmp(&other.neighbour)
+    }
+}
+
+impl<A: PartialOrd, T: Content, const K: usize> PartialOrd for NearestNeighbourPoint<A, T, K> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+	self.neighbour.partial_cmp(&other.neighbour)
+    }
+}
+
+impl<A: PartialOrd, T: Content, const K: usize> PartialEq for NearestNeighbourPoint<A, T, K> {
+    fn eq(&self, other: &Self) -> bool {
+	self.neighbour == other.neighbour
+    }
+}
+
+impl<A: PartialOrd, T: Content, const K: usize> Eq for NearestNeighbourPoint<A, T, K> {}
+
 
 #[cfg(test)]
 mod tests {

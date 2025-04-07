@@ -44,17 +44,19 @@ where
 {
     #[allow(dead_code)]
     #[inline]
-    pub(crate) fn nearest_one<D>(&self, query: &[A; K], best_dist: &mut A, best_item: &mut T)
+    pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T)
     where
         D: DistanceMetric<A, K>,
     {
         // AVX512: 4 loops of 32 iterations, each 4x unrolled, 5 instructions per pre-unrolled iteration
         let mut acc = [A::zero(); C];
         (0..K).step_by(1).for_each(|dim| {
-            let qd = [query[dim]; C];
+            //let qd = [query[dim]; C];  // This is a single constant per dim...
 
             (0..C).step_by(1).for_each(|idx| {
-                acc[idx] += D::dist1(self.content_points[dim][idx], qd[idx]);
+                //acc[idx] += D::dist1(self.content_points[dim][idx], qd[idx]);
+                acc[idx] = D::accumulate(acc[idx], D::dist1(
+		    self.content_points[dim][idx], query[dim], scale[dim]));
             });
         });
 
@@ -189,7 +191,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn nearest_one<D>(&self, query: &[A; K], best_dist: &mut A, best_item: &mut T)
+    pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T)
     where
         D: DistanceMetric<A, K>,
     {
@@ -204,7 +206,8 @@ where
         for idx in 0..remainder_items.len() {
             let mut dist = A::zero();
             (0..K).step_by(1).for_each(|dim| {
-                dist += D::dist1(remainder_points[dim][idx], query[dim]);
+                //dist += D::dist1(remainder_points[dim][idx], query[dim]);
+                dist = D::accumulate(dist, D::dist1(remainder_points[dim][idx], query[dim], scale[dim]));
             });
 
             // TODO: make branchless
@@ -220,7 +223,49 @@ where
     }
 
     #[inline]
-    pub(crate) fn nearest_n_within<D, R>(&self, query: &[A; K], radius: A, results: &mut R)
+    pub(crate) fn nearest_one_points<D>(&self, query: &[A; K], scale: &[A; K])-> Option<NearestNeighbourPoint<A, T, K>>
+    where
+        D: DistanceMetric<A, K>,
+    {
+    }
+
+    /// Iterate the LeafSlice in full chunks and then by the remainder, evaluating each candidate distance/item vs. the 
+    ///
+    #[inline]
+    pub(crate) fn collect_points<D>(&self, query: &[A; K], scale: &[A; K], best: F) -> R
+    where
+        D: DistanceMetric<A, K>,
+        R: ResultCollection<Self, T>,
+    {
+        let chunk_iter = self.as_full_chunks::<CHUNK_SIZE>();
+        let (remainder_points, remainder_items) = chunk_iter.remainder();
+        for chunk in chunk_iter {
+            let dists = A::dists_for_chunk::<D, CHUNK_SIZE>(chunk.0, query);
+            A::update_nearest_dist(dists, chunk.1, best_dist, best_item);
+        }
+
+        #[allow(clippy::needless_range_loop)]
+        for idx in 0..remainder_items.len() {
+            let mut dist = A::zero();
+            (0..K).step_by(1).for_each(|dim| {
+                //dist += D::dist1(remainder_points[dim][idx], query[dim]);
+                dist = D::accumulate(dist, D::dist1(remainder_points[dim][idx], query[dim], scale[dim]));
+            });
+
+            // TODO: make branchless
+            let dist_is_better = u8::from(dist < *best_dist);
+            // best_dist.cmovnz(&dist, dist_is_better);
+            // best_item.cmovnz(&remainder_items[idx], dist_is_better);
+
+            if dist_is_better == 1 {
+                *best_dist = dist;
+                *best_item = remainder_items[idx];
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn nearest_n_within<D, R>(&self, query: &[A; K], scale: &[A; K], radius: A, results: &mut R)
     where
         D: DistanceMetric<A, K>,
         R: ResultCollection<A, T>,
@@ -237,8 +282,8 @@ where
         for idx in 0..remainder_items.len() {
             let mut distance = A::zero();
             (0..K).step_by(1).for_each(|dim| {
-                distance += D::dist1(remainder_points[dim][idx], query[dim]);
-            });
+		distance = D::accumulate(distance, dist1(remainder_points[dim][idx], query[dim], scale[dim]))
+	    });
 
             if distance < radius {
                 results.add(NearestNeighbour {
@@ -253,6 +298,7 @@ where
     pub(crate) fn best_n_within<D>(
         &self,
         query: &[A; K],
+        scale: &[A; K],
         radius: A,
         max_qty: usize,
         results: &mut BinaryHeap<BestNeighbour<A, T>>,
@@ -271,7 +317,8 @@ where
         for idx in 0..remainder_items.len() {
             let mut distance = A::zero();
             (0..K).step_by(1).for_each(|dim| {
-                distance += D::dist1(remainder_points[dim][idx], query[dim]);
+                //distance += D::dist1(remainder_points[dim][idx], query[dim]);
+                distance = D::accumulate(distance, D::dist1(remainder_points[dim][idx], query[dim], scale[dim]));
             });
 
             if distance < radius {
@@ -359,7 +406,7 @@ where
     usize: Cast<T>,
 {
     #[inline]
-    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K]) -> [Self; C]
+    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K], scale: [&Self; K]) -> [Self; C]
     where
         D: DistanceMetric<Self, K>,
         Self: Sized,
@@ -367,10 +414,11 @@ where
         // AVX512: 4 loops of 32 iterations, each 4x unrolled, 5 instructions per pre-unrolled iteration
         let mut acc = [0f64; C];
         (0..K).step_by(1).for_each(|dim| {
-            let qd = [query[dim]; C];
+            //let qd = [query[dim]; C];
 
             (0..C).step_by(1).for_each(|idx| {
-                acc[idx] += D::dist1(chunk[dim][idx], qd[idx]);
+                //acc[idx] += D::dist1(chunk[dim][idx], qd[idx]);
+		acc[idx] = D::accumulate(D::dist1(chunk[dim][idx], query[dim], scale[dim]));
             });
         });
 
@@ -445,7 +493,7 @@ where
     usize: Cast<T>,
 {
     #[inline]
-    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K]) -> [Self; C]
+    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K], scale: &[Self; K]) -> [Self; C]
     where
         D: DistanceMetric<Self, K>,
         Self: Sized,
@@ -453,10 +501,11 @@ where
         // AVX512: 4 loops of 32 iterations, each 4x unrolled, 5 instructions per pre-unrolled iteration
         let mut acc = [0f32; C];
         (0..K).step_by(1).for_each(|dim| {
-            let qd = [query[dim]; C];
+            //let qd = [query[dim]; C];
 
             (0..C).step_by(1).for_each(|idx| {
-                acc[idx] += D::dist1(chunk[dim][idx], qd[idx]);
+                //acc[idx] += D::dist1(chunk[dim][idx], qd[idx]);
+                acc[idx] = D::accumulate(acc[idx], D::dist1(chunk[dim][idx], query[dim], scale[dim]));
             });
         });
 

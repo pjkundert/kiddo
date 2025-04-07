@@ -9,12 +9,22 @@ macro_rules! generate_nearest_n {
     where
         D: DistanceMetric<A, K>,
     {
+        let mut unit = [A::one(); K];
+        self.nearest_n_points::<D>(query, &unit, qty).iter().map(|(nn,_p)| nn.to_owned()).collect()
+    }
+
+    #[inline]
+    pub fn nearest_n_points<D>(&self, query: &[A; K], scale: &[A; K], qty: usize) -> Vec<(NearestNeighbour<A, T>, [A; K])>
+    where
+        D: DistanceMetric<A, K>,
+    {
         let mut off = [A::zero(); K];
-        let mut result: BinaryHeap<NearestNeighbour<A, T>> = BinaryHeap::with_capacity(qty);
+        let mut result: BinaryHeap<NearestNeighbourPoint<A, T, K>> = BinaryHeap::with_capacity(qty);
 
         unsafe {
             self.nearest_n_recurse::<D>(
                 query,
+		scale,
                 self.root_index,
                 0,
                 &mut result,
@@ -23,16 +33,17 @@ macro_rules! generate_nearest_n {
             )
         }
 
-        result.into_sorted_vec()
+        result.into_sorted_vec().iter().map(|nnp| (nnp.neighbour,nnp.point)).collect()
     }
 
     #[allow(clippy::too_many_arguments)]
     unsafe fn nearest_n_recurse<D>(
         &self,
         query: &[A; K],
+        scale: &[A; K],
         curr_node_idx: IDX,
         split_dim: usize,
-        results: &mut BinaryHeap<NearestNeighbour<A, T>>,
+        results: &mut BinaryHeap<NearestNeighbourPoint<A, T, K>>,
         off: &mut [A; K],
         rd: A,
     ) where
@@ -55,6 +66,7 @@ macro_rules! generate_nearest_n {
 
             self.nearest_n_recurse::<D>(
                 query,
+                scale,
                 closer_node_idx,
                 next_split_dim,
                 results,
@@ -62,12 +74,13 @@ macro_rules! generate_nearest_n {
                 rd,
             );
 
-            rd = Axis::rd_update(rd, D::dist1(new_off, old_off));
+            rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
             if Self::dist_belongs_in_heap(rd, results) {
                 off[split_dim] = new_off;
                 self.nearest_n_recurse::<D>(
                     query,
+		    scale,
                     further_node_idx,
                     next_split_dim,
                     results,
@@ -87,15 +100,15 @@ macro_rules! generate_nearest_n {
                 .take(leaf_node.size.az::<usize>())
                 .enumerate()
                 .for_each(|(idx, entry)| {
-                    let distance: A = D::dist(query, entry);
+                    let distance: A = D::dist(query, entry, scale);
                     if Self::dist_belongs_in_heap(distance, results) {
                         let item = unsafe { *leaf_node.content_items.get_unchecked(idx) };
-                        let element = NearestNeighbour { distance, item };
+                        let element = NearestNeighbourPoint{ neighbour: NearestNeighbour { distance, item }, point: *entry };
                         if results.len() < results.capacity() {
                             results.push(element)
                         } else {
                             let mut top = results.peek_mut().unwrap();
-                            if element.distance < top.distance {
+                            if element.neighbour.distance < top.neighbour.distance {
                                 *top = element;
                             }
                         }
@@ -105,7 +118,7 @@ macro_rules! generate_nearest_n {
     }
 
     #[inline]
-    fn dist_belongs_in_heap(dist: A, heap: &BinaryHeap<NearestNeighbour<A, T>>) -> bool {
-        heap.is_empty() || dist < heap.peek().unwrap().distance || heap.len() < heap.capacity()
+    fn dist_belongs_in_heap(dist: A, heap: &BinaryHeap<NearestNeighbourPoint<A, T, K>>) -> bool {
+        heap.is_empty() || dist < heap.peek().unwrap().neighbour.distance || heap.len() < heap.capacity()
     }
 }}}

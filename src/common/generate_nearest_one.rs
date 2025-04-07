@@ -9,11 +9,12 @@ macro_rules! generate_nearest_one {
                 where
                     D: DistanceMetric<A, K>,
             {
-                self.nearest_one_point::<D>(query).0
+		let unit = [A::one(); K];
+                self.nearest_one_point::<D>(query, &unit).neighbour
             }
 
             #[inline]
-            pub fn nearest_one_point<D>(&self, query: &[A; K]) -> (NearestNeighbour<A, T>, [A; K])
+            pub fn nearest_one_point<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbourPoint<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
@@ -22,10 +23,15 @@ macro_rules! generate_nearest_one {
                 unsafe {
                     self.nearest_one_recurse::<D>(
                         query,
+                        scale,
                         self.root_index,
                         0,
-                        NearestNeighbour { distance: A::max_value(), item: T::default()},
-                        &mut nearest_entry,
+                        NearestNeighbourPoint {
+			    neighbour: NearestNeighbour {
+				distance: A::max_value(), item: T::default()
+			    },
+			    point: [A::zero(); K],
+			},
                         &mut off,
                         A::zero(),
                     )
@@ -36,13 +42,13 @@ macro_rules! generate_nearest_one {
             unsafe fn nearest_one_recurse<D>(
                 &self,
                 query: &[A; K],
+                scale: &[A; K],
                 curr_node_idx: IDX,
                 split_dim: usize,
-                mut nearest: NearestNeighbour<A, T>,
-                nearest_entry: &mut [A; K],
+                mut nearest: NearestNeighbourPoint<A, T, K>,
                 off: &mut [A; K],
                 rd: A,
-            ) -> (NearestNeighbour<A, T>, [A; K])
+            ) -> NearestNeighbourPoint<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
@@ -61,31 +67,30 @@ macro_rules! generate_nearest_one {
                         };
                     let next_split_dim = (split_dim + 1).rem(K);
 
-                    let (nearest_neighbour, nearest_neighbour_entry) = self.nearest_one_recurse::<D>(
+                    let nearest_neighbour = self.nearest_one_recurse::<D>(
                         query,
+			scale,
                         closer_node_idx,
                         next_split_dim,
                         nearest,
-                        nearest_entry,
                         off,
                         rd,
                     );
 
                     if nearest_neighbour < nearest {
                         nearest = nearest_neighbour;
-                        nearest_entry.copy_from_slice( &nearest_neighbour_entry );
                     }
 
-                    rd = Axis::rd_update(rd, D::dist1(new_off, old_off));
+                    rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
-                    if rd <= nearest.distance {
+                    if rd <= nearest.neighbour.distance {
                         off[split_dim] = new_off;
-                        let (result, result_entry) = self.nearest_one_recurse::<D>(
+                        let result = self.nearest_one_recurse::<D>(
                             query,
+			    scale,
                             further_node_idx,
                             next_split_dim,
                             nearest,
-                            nearest_entry,
                             off,
                             rd,
                         );
@@ -93,7 +98,6 @@ macro_rules! generate_nearest_one {
 
                         if result < nearest {
                             nearest = result;
-                            nearest_entry.copy_from_slice( &result_entry );
                         }
                     }
                 } else {
@@ -103,20 +107,20 @@ macro_rules! generate_nearest_one {
 
                     Self::search_content_for_nearest::<D>(
                         query,
+			scale,
                         &mut nearest,
-                        nearest_entry,
                         leaf_node,
                     );
                 }
 
-                (nearest, nearest_entry.clone())
+                nearest
             }
 
             #[inline]
             fn search_content_for_nearest<D>(
                 query: &[A; K],
-                nearest: &mut NearestNeighbour<A, T>,
-                nearest_entry: &mut [A; K],
+                scale: &[A; K],
+                nearest: &mut NearestNeighbourPoint<A, T, K>,
                 leaf_node: &$leafnode<A, T, K, B, IDX>,
             ) where
                 D: DistanceMetric<A, K>,
@@ -127,11 +131,11 @@ macro_rules! generate_nearest_one {
                     .enumerate()
                     .take(leaf_node.size.az::<usize>())
                     .for_each(|(idx, entry)| {
-                        let dist = D::dist(query, entry);
-                        if dist < nearest.distance {
-                            nearest.distance = dist;
-                            nearest.item = unsafe { *leaf_node.content_items.get_unchecked(idx) };
-                            nearest_entry.copy_from_slice( entry );
+                        let dist = D::dist(query, entry, scale);
+                        if dist < nearest.neighbour.distance {
+                            nearest.neighbour.distance = dist;
+                            nearest.neighbour.item = unsafe { *leaf_node.content_items.get_unchecked(idx) };
+                            nearest.point.copy_from_slice( entry );
                         }
                     });
             }
