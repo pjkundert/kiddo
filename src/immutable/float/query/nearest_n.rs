@@ -37,7 +37,7 @@ distance metric function.
 
 impl<A: Axis, T: Content, const K: usize, const B: usize> ImmutableKdTree<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {

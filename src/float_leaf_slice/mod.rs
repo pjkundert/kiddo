@@ -1,4 +1,3 @@
-pub(crate) mod fallback;
 pub mod leaf_slice;
 
 // TODO: fix f32 AVX2

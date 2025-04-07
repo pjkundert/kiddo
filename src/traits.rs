@@ -146,6 +146,7 @@ pub trait DistanceMetric<A, const K: usize> {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
 

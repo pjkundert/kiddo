@@ -57,14 +57,17 @@ macro_rules! generate_nearest_n_within_unsorted {
                 }
             }
 
-            fn nearest_n_within_stub<D: DistanceMetric<A, K>, R: ResultCollection<A, T, K>>(
+            fn nearest_n_within_stub<D: DistanceMetric<A, K>, R>(
                 &self,
 		query: &[A; K],
 		scale: &[A; K],
 		dist: A,
 		res_capacity: usize,
 		sorted: bool
-            ) -> ResultCollection<A, T, K> {
+            ) -> R
+	    where
+		R: ResultCollection<NearestNeighbour<A, T>, A, T, K>
+	    {
                 let mut matching_items = R::new_with_capacity(res_capacity);
                 let mut off = [A::zero(); K];
 
@@ -85,7 +88,7 @@ macro_rules! generate_nearest_n_within_unsorted {
             }
 
             #[allow(clippy::too_many_arguments)]
-            unsafe fn nearest_n_within_unsorted_recurse<D, R: ResultCollection<A, T, K>>(
+            unsafe fn nearest_n_within_unsorted_recurse<D, R>(
                 &self,
                 query: &[A; K],
                 scale: &[A; K],
@@ -97,6 +100,7 @@ macro_rules! generate_nearest_n_within_unsorted {
                 rd: A,
             ) where
                 D: DistanceMetric<A, K>,
+		R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
             {
                 if is_stem_index(curr_node_idx) {
                     let node = self.stems.get_unchecked(curr_node_idx.az::<usize>());

@@ -3,6 +3,9 @@ use az::Cast;
 use std::collections::BinaryHeap;
 use std::slice::ChunksExact;
 
+use crate::traits::DistanceMetric;
+use crate::{float::kdtree::Axis, neighbour::{BestNeighbour, NearestNeighbour}, traits::Content};
+
 const CHUNK_SIZE: usize = 32;
 
 /*#[cfg(all(
@@ -20,13 +23,26 @@ use super::f64_avx2::get_best_from_dists_f64_avx2;*/
 // ))]
 // use super::f64_avx512::get_best_from_dists_f64_avx512;
 
-use super::fallback::{
-    update_best_dists_within_autovec, update_nearest_dist_autovec,
-    update_nearest_dists_within_autovec,
-};
 
-use crate::traits::DistanceMetric;
-use crate::{float::kdtree::Axis, traits::Content, BestNeighbour, NearestNeighbour};
+/// Generic evaluator function for finding the nearest neighbors
+/// This replaces the type-specific autovec functions with a single generic implementation
+#[inline]
+pub(crate) fn evaluate_distances<A: Axis, T: Content, F, R>(
+    dists: &[A], 
+    items: &[T], 
+    evaluator: F,
+    results: &mut R
+) where 
+    usize: Cast<T>,
+    F: Fn(A, T, &mut R),
+{
+    dists
+        .iter()
+        .zip(items.iter())
+        .for_each(|(&distance, &item)| {
+            evaluator(distance, item, results);
+        });
+}
 
 #[doc(hidden)]
 #[allow(dead_code)]
@@ -38,7 +54,7 @@ pub(crate) struct LeafFixedSlice<'a, A: Axis, T: Content, const K: usize, const 
 
 impl<A, T, const K: usize, const C: usize> LeafFixedSlice<'_, A, T, K, C>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {
@@ -48,19 +64,29 @@ where
     where
         D: DistanceMetric<A, K>,
     {
-        // AVX512: 4 loops of 32 iterations, each 4x unrolled, 5 instructions per pre-unrolled iteration
+        // Calculate distances for all points in this chunk
         let mut acc = [A::zero(); C];
+        
+        // For each dimension
         (0..K).step_by(1).for_each(|dim| {
-            //let qd = [query[dim]; C];  // This is a single constant per dim...
-
+            
+            // For each point in the chunk
             (0..C).step_by(1).for_each(|idx| {
-                //acc[idx] += D::dist1(self.content_points[dim][idx], qd[idx]);
+                
+                // Accumulate distance in this dimension
                 acc[idx] = D::accumulate(acc[idx], D::dist1(
-		    self.content_points[dim][idx], query[dim], scale[dim]));
+		    
+                    self.content_points[dim][idx], query[dim], scale[dim]
+		));
+            
             });
+        
         });
 
+        
+        // Update the best distance and item if we found a better one
         A::update_nearest_dist(acc, self.content_items, best_dist, best_item);
+    
     }
 }
 
@@ -119,13 +145,13 @@ pub trait LeafSliceFloatChunk<T, const K: usize>
 where
     T: Content,
 {
-    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K]) -> [Self; C]
+    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K], scale: &[Self; K]) -> [Self; C]
     where
         D: DistanceMetric<Self, K>,
         Self: Sized;
 }
 
-pub trait LeafSliceFloat<T>
+pub trait LeafSliceFloat<T, const K: usize>
 where
     T: Content,
 {
@@ -143,7 +169,7 @@ where
         radius: Self,
         results: &mut R,
     ) where
-        R: ResultCollection<Self, T>,
+        R: ResultCollection<NearestNeighbour<Self, T>, Self, T, K>,
         usize: Cast<T>,
         Self: Axis + Sized;
 
@@ -159,7 +185,7 @@ where
 
 impl<A, T, const K: usize> LeafSlice<'_, A, T, K>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {
@@ -222,74 +248,41 @@ where
         }
     }
 
-    #[inline]
-    pub(crate) fn nearest_one_points<D>(&self, query: &[A; K], scale: &[A; K])-> Option<NearestNeighbourPoint<A, T, K>>
-    where
-        D: DistanceMetric<A, K>,
-    {
-    }
-
-    /// Iterate the LeafSlice in full chunks and then by the remainder, evaluating each candidate distance/item vs. the 
-    ///
-    #[inline]
-    pub(crate) fn collect_points<D>(&self, query: &[A; K], scale: &[A; K], best: F) -> R
-    where
-        D: DistanceMetric<A, K>,
-        R: ResultCollection<Self, T>,
-    {
-        let chunk_iter = self.as_full_chunks::<CHUNK_SIZE>();
-        let (remainder_points, remainder_items) = chunk_iter.remainder();
-        for chunk in chunk_iter {
-            let dists = A::dists_for_chunk::<D, CHUNK_SIZE>(chunk.0, query);
-            A::update_nearest_dist(dists, chunk.1, best_dist, best_item);
-        }
-
-        #[allow(clippy::needless_range_loop)]
-        for idx in 0..remainder_items.len() {
-            let mut dist = A::zero();
-            (0..K).step_by(1).for_each(|dim| {
-                //dist += D::dist1(remainder_points[dim][idx], query[dim]);
-                dist = D::accumulate(dist, D::dist1(remainder_points[dim][idx], query[dim], scale[dim]));
-            });
-
-            // TODO: make branchless
-            let dist_is_better = u8::from(dist < *best_dist);
-            // best_dist.cmovnz(&dist, dist_is_better);
-            // best_item.cmovnz(&remainder_items[idx], dist_is_better);
-
-            if dist_is_better == 1 {
-                *best_dist = dist;
-                *best_item = remainder_items[idx];
-            }
-        }
-    }
 
     #[inline]
     pub(crate) fn nearest_n_within<D, R>(&self, query: &[A; K], scale: &[A; K], radius: A, results: &mut R)
     where
         D: DistanceMetric<A, K>,
-        R: ResultCollection<A, T>,
+        R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
     {
         let chunk_iter = self.as_full_chunks::<CHUNK_SIZE>();
         let (remainder_points, remainder_items) = chunk_iter.remainder();
+        
+        // Process full chunks
         for chunk in chunk_iter {
-            let dists = A::dists_for_chunk::<D, CHUNK_SIZE>(chunk.0, query);
+            let dists = A::dists_for_chunk::<D, CHUNK_SIZE>(chunk.0, query, scale);
 
-            A::update_nearest_dists_within(dists, chunk.1, radius, results);
+            // Add all points within radius to results
+            evaluate_distances(&dists, chunk.1, |distance, item, results| {
+                if distance <= radius {
+                    results.add(NearestNeighbour::new(distance, item));
+                }
+            }, results);
         }
 
+        // Process remainder
         #[allow(clippy::needless_range_loop)]
         for idx in 0..remainder_items.len() {
             let mut distance = A::zero();
             (0..K).step_by(1).for_each(|dim| {
-		distance = D::accumulate(distance, dist1(remainder_points[dim][idx], query[dim], scale[dim]))
+			distance = D::accumulate(distance, D::dist1(remainder_points[dim][idx], query[dim], scale[dim]))
 	    });
 
-            if distance < radius {
-                results.add(NearestNeighbour {
+            if distance <= radius {
+                results.add(NearestNeighbour::new(
                     distance,
-                    item: *unsafe { self.content_items.get_unchecked(idx) },
-                });
+                    *unsafe { remainder_items.get_unchecked(idx) },
+                ));
             }
         }
     }
@@ -307,29 +300,42 @@ where
     {
         let chunk_iter = self.as_full_chunks::<CHUNK_SIZE>();
         let (remainder_points, remainder_items) = chunk_iter.remainder();
+        
+        // Process full chunks
         for chunk in chunk_iter {
-            let dists = A::dists_for_chunk::<D, CHUNK_SIZE>(chunk.0, query);
+            let dists = A::dists_for_chunk::<D, CHUNK_SIZE>(chunk.0, query, scale);
 
-            A::update_best_dists_within(dists, chunk.1, radius, max_qty, results);
+            // Add best points within radius to results
+            evaluate_distances(&dists, chunk.1, |distance, item, results: &mut BinaryHeap<BestNeighbour<A, T>>| {
+                if distance <= radius {
+                    if results.len() < max_qty {
+                        results.push(BestNeighbour::new(distance, item));
+                    } else {
+                        let mut top = results.peek_mut().unwrap();
+                        if item < top.0.item {
+                            *top = BestNeighbour::new(distance, item);
+                        }
+                    }
+                }
+            }, results);
         }
 
+        // Process remainder
         #[allow(clippy::needless_range_loop)]
         for idx in 0..remainder_items.len() {
             let mut distance = A::zero();
             (0..K).step_by(1).for_each(|dim| {
-                //distance += D::dist1(remainder_points[dim][idx], query[dim]);
                 distance = D::accumulate(distance, D::dist1(remainder_points[dim][idx], query[dim], scale[dim]));
             });
 
-            if distance < radius {
+            if distance <= radius {
                 let item = *unsafe { remainder_items.get_unchecked(idx) };
                 if results.len() < max_qty {
-                    results.push(BestNeighbour { distance, item });
+                    results.push(BestNeighbour::new(distance, item));
                 } else {
                     let mut top = results.peek_mut().unwrap();
-                    if item < top.item {
-                        top.item = item;
-                        top.distance = distance;
+                    if item < top.0.item {
+                        *top = BestNeighbour::new(distance, item);
                     }
                 }
             }
@@ -337,7 +343,7 @@ where
     }
 }
 
-impl<T: Content> LeafSliceFloat<T> for f64
+impl<T: Content, const K: usize> LeafSliceFloat<T, K> for f64
 where
     T: Content,
     usize: Cast<T>,
@@ -349,30 +355,17 @@ where
         best_dist: &mut f64,
         best_item: &mut T,
     ) {
-        #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
-        {
-            /*if is_x86_feature_detected!("avx512f") {
-                #[cfg(target_feature = "avx512f")]
-                unsafe {
-                    get_best_from_dists_f64_avx512(&acc, items, best_dist, best_item)
-                }
-            } else */
-            /*if is_x86_feature_detected!("avx2") {
-                #[cfg(target_feature = "avx2")]
-                unsafe {
-                    get_best_from_dists_f64_avx2(&acc, items, best_dist, best_item)
-                }
-            } else {*/
-            update_nearest_dist_autovec(&acc, items, best_dist, best_item)
-            // }
-        }
+        // Find the minimum distance in this chunk
+        let (leaf_best_item, leaf_best_dist) = acc
+            .iter()
+            .enumerate()
+            .min_by(|(_, &a), (_, b)| a.partial_cmp(b).unwrap())
+            .unwrap();
 
-        #[cfg(any(
-            not(feature = "simd"),
-            not(any(target_arch = "x86", target_arch = "x86_64"))
-        ))]
-        {
-            update_nearest_dist_autovec(&acc, items, best_dist, best_item)
+        // Update best if needed
+        if leaf_best_dist < *best_dist {
+            *best_dist = leaf_best_dist;
+            *best_item = items[leaf_best_item];
         }
     }
 
@@ -383,9 +376,13 @@ where
         radius: f64,
         results: &mut R,
     ) where
-        R: ResultCollection<f64, T>,
+        R: ResultCollection<NearestNeighbour<f64, T>, f64, T, K>,
     {
-        update_nearest_dists_within_autovec(&acc, items, radius, results)
+        evaluate_distances(&acc, items, |distance, item, results| {
+            if distance <= radius {
+                results.add(NearestNeighbour::new(distance, item));
+            }
+        }, results);
     }
 
     #[inline]
@@ -396,7 +393,18 @@ where
         max_qty: usize,
         results: &mut BinaryHeap<BestNeighbour<f64, T>>,
     ) {
-        update_best_dists_within_autovec(&acc, items, radius, max_qty, results)
+        evaluate_distances(&acc, items, |distance, item, results: &mut BinaryHeap<BestNeighbour<f64, T>>| {
+            if distance <= radius {
+                if results.len() < max_qty {
+                    results.push(BestNeighbour::new(distance, item));
+                } else {
+                    let mut top = results.peek_mut().unwrap();
+                    if item < top.0.item {
+                        *top = BestNeighbour::new(distance, item);
+                    }
+                }
+            }
+        }, results);
     }
 }
 
@@ -406,7 +414,7 @@ where
     usize: Cast<T>,
 {
     #[inline]
-    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K], scale: [&Self; K]) -> [Self; C]
+    fn dists_for_chunk<D, const C: usize>(chunk: [&[Self; C]; K], query: &[Self; K], scale: &[Self; K]) -> [Self; C]
     where
         D: DistanceMetric<Self, K>,
         Self: Sized,
@@ -426,7 +434,7 @@ where
     }
 }
 
-impl<T: Content> LeafSliceFloat<T> for f32
+impl<T: Content, const K: usize> LeafSliceFloat<T, K> for f32
 where
     T: Content,
     usize: Cast<T>,
@@ -438,28 +446,17 @@ where
         best_dist: &mut f32,
         best_item: &mut T,
     ) {
-        #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
-        {
-            /* if is_x86_feature_detected!("avx512f") {
-                // TODO
-                unimplemented!()
-            } else */
-            /*if is_x86_feature_detected!("avx2") {
-                #[cfg(target_feature = "avx2")]
-                unsafe {
-                    get_best_from_dists_f32_avx2(&acc, items, best_dist, best_item)
-                }
-            } else {*/
-            update_nearest_dist_autovec(&acc, items, best_dist, best_item)
-            //}
-        }
+        // Find the minimum distance in this chunk
+        let (leaf_best_item, leaf_best_dist) = acc
+            .iter()
+            .enumerate()
+            .min_by(|(_, &a), (_, b)| a.partial_cmp(b).unwrap())
+            .unwrap();
 
-        #[cfg(any(
-            not(feature = "simd"),
-            not(any(target_arch = "x86", target_arch = "x86_64"))
-        ))]
-        {
-            update_nearest_dist_autovec(&acc, items, best_dist, best_item)
+        // Update best if needed
+        if leaf_best_dist < *best_dist {
+            *best_dist = leaf_best_dist;
+            *best_item = items[leaf_best_item];
         }
     }
 
@@ -470,9 +467,13 @@ where
         radius: f32,
         results: &mut R,
     ) where
-        R: ResultCollection<f32, T>,
+        R: ResultCollection<NearestNeighbour<f32, T>, f32, T, K>,
     {
-        update_nearest_dists_within_autovec(&acc, items, radius, results)
+        evaluate_distances(&acc, items, |distance, item, results| {
+            if distance <= radius {
+                results.add(NearestNeighbour::new(distance, item));
+            }
+        }, results);
     }
 
     #[inline]
@@ -483,7 +484,18 @@ where
         max_qty: usize,
         results: &mut BinaryHeap<BestNeighbour<f32, T>>,
     ) {
-        update_best_dists_within_autovec(&acc, items, radius, max_qty, results)
+        evaluate_distances(&acc, items, |distance, item, results: &mut BinaryHeap<BestNeighbour<f32, T>>| {
+            if distance <= radius {
+                if results.len() < max_qty {
+                    results.push(BestNeighbour::new(distance, item));
+                } else {
+                    let mut top = results.peek_mut().unwrap();
+                    if item < top.0.item {
+                        *top = BestNeighbour::new(distance, item);
+                    }
+                }
+            }
+        }, results);
     }
 }
 

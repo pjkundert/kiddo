@@ -34,14 +34,17 @@ macro_rules! generate_immutable_nearest_n_within {
                 }
             }
 
-            fn nearest_n_within_stub<D: DistanceMetric<A, K>, R: ResultCollection<A, T, K>>(
+            fn nearest_n_within_stub<D: DistanceMetric<A, K>, R>(
                 &self,
 		query: &[A; K],
 		scale: &[A; K],
 		dist: A,
 		res_capacity: usize,
 		sorted: bool
-            ) -> ResultCollection<A, T, K> {
+            ) -> ResultCollection<A, T, K>
+	    where
+		R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
+	    {
                 let mut matching_items = R::new_with_capacity(res_capacity);
                 let mut off = [A::zero(); K];
 
@@ -93,7 +96,7 @@ macro_rules! generate_immutable_nearest_n_within {
                 mut leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
-                R: ResultCollection<A, T, K>,
+                R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
             {
                 if level > self.max_stem_level as usize || self.stems.is_empty() {
                     self.search_leaf_for_nearest_n_within::<D, R>(query, radius, matching_items, leaf_idx as usize);
@@ -240,7 +243,7 @@ macro_rules! generate_immutable_nearest_n_within {
                 leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
-                R: ResultCollection<A, T, K>,
+                R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
             {
                 let leaf_slice = self.get_leaf_slice(leaf_idx);
 

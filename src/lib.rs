@@ -84,6 +84,8 @@ extern crate doc_comment;
 extern crate core;
 
 #[doc(hidden)]
+pub mod neighbour;
+#[doc(hidden)]
 pub mod best_neighbour;
 #[doc(hidden)]
 pub(crate) mod common;
@@ -130,10 +132,10 @@ pub type KdTree<A, const K: usize> = float::kdtree::KdTree<A, u64, K, 32, u32>;
 pub type ImmutableKdTree<A, const K: usize> =
     immutable::float::kdtree::ImmutableKdTree<A, u64, K, 32>;
 
-pub use best_neighbour::BestNeighbour;
+pub use best_neighbour::{BestNeighbour, BestNeighbourPoint};
+pub use nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
 pub use float::distance::Manhattan;
 pub use float::distance::SquaredEuclidean;
-pub use nearest_neighbour::NearestNeighbour;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub use within_unsorted_iter::WithinUnsortedIter;

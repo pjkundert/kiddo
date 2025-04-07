@@ -37,7 +37,7 @@ to not needing to allocate memory or maintain sorted results.
 
 impl<A, T, const K: usize, const B: usize> ImmutableKdTree<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {

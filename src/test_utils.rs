@@ -138,7 +138,7 @@ where
     Standard: Distribution<T>,
     Standard: Distribution<([A; K], T)>,
     Standard: Distribution<[A; K]>,
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
 {
     let mut points = vec![];
     points.resize_with(size, rand::random::<[A; K]>);
@@ -320,7 +320,7 @@ pub fn build_populated_tree_and_query_points_immutable_float<
     query_point_qty: usize,
 ) -> (ImmutableKdTree<A, T, K, B>, Vec<[A; K]>)
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
     usize: Cast<T>,
     Standard: Distribution<T>,
     Standard: Distribution<[A; K]>,

@@ -12,7 +12,7 @@ macro_rules! generate_immutable_best_n_within {
                 max_qty: NonZero<usize>,
             ) -> impl Iterator<Item = BestNeighbour<A, T>>
             where
-                A: LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+                A: LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
                 usize: Cast<T>,
                 D: DistanceMetric<A, K>,
             {
@@ -71,7 +71,7 @@ macro_rules! generate_immutable_best_n_within {
                 mut level: usize,
                 mut leaf_idx: usize,
             ) where
-                A: LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+                A: LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
                 usize: Cast<T>,
                 D: DistanceMetric<A, K>,
             {
