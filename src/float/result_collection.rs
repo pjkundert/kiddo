@@ -2,6 +2,7 @@
 //!
 //! Capable of storing and ordering {Best,Nearest}NeighbourPoint implementations
 
+use crate::float::kdtree::Axis;
 use crate::neighbour::{NeighbourEntry, NeighbourPoint};
 use crate::traits::Content;
 use sorted_vec::SortedVec;
@@ -11,6 +12,7 @@ pub trait ResultCollection<N, A, T, const K: usize>
 where
     N: NeighbourEntry<A, T>,
     T: Content,
+    A: Axis,
 {
     fn new_with_capacity(capacity: usize) -> Self;
     fn add(&mut self, entry: NeighbourPoint<N, A, T, K>);
@@ -25,6 +27,7 @@ impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for BinaryHeap<Neighb
 where
     N: NeighbourEntry<A, T>,
     T: Content,
+    A: Axis,
     NeighbourPoint<N, A, T, K>: Ord,
 {
     fn new_with_capacity(capacity: usize) -> Self {
@@ -47,16 +50,16 @@ where
         if self.len() < self.capacity() {
             A::infinity()
         } else {
-            self.peek().map_or(A::infinity(), |n| n.neighbor.distance())
+            self.peek().map_or(A::infinity(), |n| n.neighbour.distance())
         }
     }
     
     fn into_vec(self) -> Vec<N> {
-        BinaryHeap::into_vec(self).into_iter().map(|np| np.neighbor).collect()
+        BinaryHeap::into_vec(self).into_iter().map(|np| np.neighbour).collect()
     }
     
     fn into_sorted_vec(self) -> Vec<N> {
-        BinaryHeap::into_sorted_vec(self).into_iter().map(|np| np.neighbor).collect()
+        BinaryHeap::into_sorted_vec(self).into_iter().map(|np| np.neighbour).collect()
     }
     
     fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
@@ -72,6 +75,7 @@ impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for Vec<NeighbourPoin
 where
     N: NeighbourEntry<A, T>,
     T: Content,
+    A: Axis,
     NeighbourPoint<N, A, T, K>: Ord,
 {
     fn new_with_capacity(capacity: usize) -> Self {
@@ -87,13 +91,13 @@ where
     }
     
     fn into_vec(self) -> Vec<N> {
-        self.into_iter().map(|np| np.neighbor).collect()
+        self.into_iter().map(|np| np.neighbour).collect()
     }
     
     fn into_sorted_vec(self) -> Vec<N> {
         let mut sorted = self;
         sorted.sort();
-        sorted.into_iter().map(|np| np.neighbor).collect()
+        sorted.into_iter().map(|np| np.neighbour).collect()
     }
     
     fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
@@ -110,6 +114,7 @@ impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for SortedVec<Neighbo
 where
     N: NeighbourEntry<A, T>,
     T: Content,
+    A: Axis,
     NeighbourPoint<N, A, T, K>: Ord,
 {
     fn new_with_capacity(capacity: usize) -> Self {
@@ -130,16 +135,16 @@ where
         if self.len() < self.capacity() {
             A::infinity()
         } else {
-            self.last().map_or(A::infinity(), |n| n.neighbor.distance())
+            self.last().map_or(A::infinity(), |n| n.neighbour.distance())
         }
     }
     
     fn into_vec(self) -> Vec<N> {
-        self.into_vec().into_iter().map(|np| np.neighbor).collect()
+        self.into_vec().into_iter().map(|np| np.neighbour).collect()
     }
     
     fn into_sorted_vec(self) -> Vec<N> {
-        self.into_vec().into_iter().map(|np| np.neighbor).collect()
+        self.into_vec().into_iter().map(|np| np.neighbour).collect()
     }
     
     fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
@@ -155,6 +160,7 @@ impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for Option<NeighbourP
 where
     N: NeighbourEntry<A, T>,
     T: Content,
+    A: Axis,
 {
     fn new_with_capacity(capacity: usize) -> Self {
         assert_eq!(capacity, 1);
@@ -167,21 +173,21 @@ where
     
     fn max_dist(&self) -> A {
         match self {
-            Some(np) => np.neighbor.distance(),
+            Some(np) => np.neighbour.distance(),
             None => A::infinity(),
         }
     }
     
     fn into_vec(self) -> Vec<N> {
         match self {
-            Some(np) => vec![np.neighbor],
+            Some(np) => vec![np.neighbour],
             None => vec![],
         }
     }
     
     fn into_sorted_vec(self) -> Vec<N> {
         match self {
-            Some(np) => vec![np.neighbor],
+            Some(np) => vec![np.neighbour],
             None => vec![],
         }
     }

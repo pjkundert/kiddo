@@ -90,13 +90,19 @@ impl<A: PartialOrd, T: Content> Ord for NearestNeighbour<A, T> {
     }
 }
 
-impl<A: PartialOrd, T: Content> PartialOrd for NearestNeighbour<A, T> {
+impl<A: PartialOrd, T: Content> PartialEq for NearestNeighbour<A, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.distance == other.0.distance && self.0.item == other.0.item
+    }
+}
+
+impl<A: PartialOrd + PartialEq, T: Content> PartialOrd for NearestNeighbour<A, T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.0.distance.partial_cmp(&other.0.distance)
     }
 }
 
-impl<A: PartialEq, T: Content> Eq for NearestNeighbour<A, T> {}
+impl<A: PartialOrd + PartialEq, T: Content> Eq for NearestNeighbour<A, T> {}
 
 // Implement NeighbourEntry for NearestNeighbour wrapper
 impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for NearestNeighbour<A, T> {
@@ -129,7 +135,7 @@ impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for NearestNeighbour<A, T> 
 #[derive(Debug, Copy, Clone)]
 pub struct BestNeighbour<A: PartialOrd, T: Content>(pub Neighbour<A, T>);
 
-impl<A, T: Content> BestNeighbour<A, T> {
+impl<A: PartialOrd, T: Content> BestNeighbour<A, T> {
     /// Create a new BestNeighbour
     pub fn new(distance: A, item: T) -> Self {
         Self(Neighbour::new(distance, item))
@@ -142,13 +148,19 @@ impl<A: PartialOrd, T: Content> Ord for BestNeighbour<A, T> {
     }
 }
 
+impl<A: PartialOrd, T: Content> PartialEq for BestNeighbour<A, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.distance == other.0.distance && self.0.item == other.0.item
+    }
+}
+
 impl<A: PartialOrd, T: Content> PartialOrd for BestNeighbour<A, T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.0.item.partial_cmp(&other.0.item)
     }
 }
 
-impl<A: PartialEq, T: Content> Eq for BestNeighbour<A, T> {}
+impl<A: PartialOrd + PartialEq, T: Content> Eq for BestNeighbour<A, T> {}
 
 // Implement NeighbourEntry for BestNeighbour wrapper
 impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for BestNeighbour<A, T> {
@@ -178,13 +190,13 @@ impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for BestNeighbour<A, T> {
 }
 
 // Implement From for NearestNeighbour and BestNeighbour to convert to tuple
-impl<A, T: Content> From<NearestNeighbour<A, T>> for (A, T) {
+impl<A: PartialOrd, T: Content> From<NearestNeighbour<A, T>> for (A, T) {
     fn from(neighbour: NearestNeighbour<A, T>) -> Self {
         neighbour.0.into_tuple()
     }
 }
 
-impl<A, T: Content> From<BestNeighbour<A, T>> for (A, T) {
+impl<A: PartialOrd, T: Content> From<BestNeighbour<A, T>> for (A, T) {
     fn from(neighbour: BestNeighbour<A, T>) -> Self {
         neighbour.0.into_tuple()
     }
@@ -194,8 +206,9 @@ impl<A, T: Content> From<BestNeighbour<A, T>> for (A, T) {
 #[derive(Debug, Copy, Clone)]
 pub struct NeighbourPoint<N, A, T, const K: usize>
 where
-    T: Content,
     N: NeighbourEntry<A, T>,
+    A: PartialOrd,
+    T: Content,
 {
     pub neighbour: NeighbourEntry<A, T>,
     pub point: [A; K],
@@ -204,6 +217,7 @@ where
 impl<N, A, T, const K: usize> NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T>,
+    A: PartialOrd,
     T: Content,
 {
     /// Create a new NeighbourPoint with a neighbour entry and point
@@ -259,7 +273,7 @@ where
 impl<N, A, T, const K: usize> Eq for NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T> + Eq,
-    A: PartialEq,
+    A: PartialOrd + PartialEq,
     T: Content + PartialEq,
 {}
 
@@ -267,7 +281,7 @@ where
 impl<N, A, T, const K: usize> PartialEq for NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T> + PartialEq,
-    A: PartialEq,
+    A: PartialOrd + PartialEq,
     T: Content + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {

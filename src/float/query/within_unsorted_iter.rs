@@ -3,7 +3,7 @@ use generator::{done, Gn, Scope};
 use std::ops::Rem;
 
 use crate::float::kdtree::{Axis, KdTree};
-use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
+use crate::nearest_neighbour::NearestNeighbourPoint;
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 use crate::within_unsorted_iter::{WithinUnsortedIter, WithinUnsortedPointIter};

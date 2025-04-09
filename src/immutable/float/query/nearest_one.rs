@@ -4,7 +4,7 @@ use crate::float::kdtree::Axis;
 use crate::float_leaf_slice::leaf_slice::{LeafSliceFloat, LeafSliceFloatChunk};
 use crate::generate_immutable_nearest_one;
 use crate::immutable::float::kdtree::ImmutableKdTree;
-use crate::nearest_neighbour::NearestNeighbour;
+use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
 use crate::traits::Content;
 use crate::traits::DistanceMetric;
 

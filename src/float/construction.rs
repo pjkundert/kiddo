@@ -14,6 +14,15 @@ where
     /// The first argument specifies co-ordinates of the point where the item is located.
     /// The second argument is an integer identifier / index for the item being stored.
     ///
+    /// The number of points added with the same value on one dimension cannot exceed B (the leaf
+    /// bucket size).  For example, if adding an axis-aligned grid of points, all points on one
+    /// "plane" of the grid will have the same dimension value, so the minimum B must be equal to
+    /// the maximum number of points created what that same dimensional value.  To create an eg. 3-D
+    /// AxBxC grid requires B >= max( AxB, BxC, AxC ).  However, if the points are not created in
+    /// strict axis by axis order, as you fill the bucket it won't be full of points with all the
+    /// same coordinates for one axis, and will be subdivided before overflowing B (create iterators
+    /// for each grid axis coordinate, and take random amounts from each iterator until done).
+    ///
     /// # Examples
     ///
     /// ```rust

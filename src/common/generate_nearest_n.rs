@@ -74,7 +74,7 @@ macro_rules! generate_nearest_n {
                 rd,
             );
 
-            rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
+            rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
             if Self::dist_belongs_in_heap(rd, results) {
                 off[split_dim] = new_off;
@@ -103,12 +103,12 @@ macro_rules! generate_nearest_n {
                     let distance: A = D::dist(query, entry, scale);
                     if Self::dist_belongs_in_heap(distance, results) {
                         let item = unsafe { *leaf_node.content_items.get_unchecked(idx) };
-                        let element = NearestNeighbourPoint{ neighbour: NearestNeighbour { distance, item }, point: *entry };
+                        let element = NearestNeighbourPoint::new_nearest(distance, item, *entry);
                         if results.len() < results.capacity() {
                             results.push(element)
                         } else {
                             let mut top = results.peek_mut().unwrap();
-                            if element.neighbour.distance < top.neighbour.distance {
+                            if element.neighbour.distance() < top.neighbour.distance() {
                                 *top = element;
                             }
                         }

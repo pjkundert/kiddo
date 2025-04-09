@@ -93,7 +93,7 @@ macro_rules! generate_best_n_within {
                 rd,
             );
 
-            rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
+            rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
             if rd <= radius {
                 off[split_dim] = new_off;
@@ -136,7 +136,7 @@ macro_rules! generate_best_n_within {
             .take(leaf_node.size.az::<usize>())
             .map(|entry| (D::dist(query, entry, scale),entry))
             .enumerate()
-            .filter(|(_, (distance,entry))| *distance <= radius)
+            .filter(|(_, (distance,_entry))| *distance <= radius)
             .for_each(|(idx, (distance, entry))| {
                 Self::get_item_and_add_if_good(max_qty, best_items, leaf_node, idx, distance, entry)
             });
@@ -153,12 +153,11 @@ macro_rules! generate_best_n_within {
     ) {
         let item = *leaf_node.content_items.get_unchecked(idx.az::<usize>());
         if best_items.len() < max_qty {
-            best_items.push(BestNeighbourPoint{ neighbour: BestNeighbour{ distance, item },point: entry.clone()})
+            best_items.push(BestNeighbourPoint::new_best(distance, item, entry.clone()))
         } else {
             let mut top = best_items.peek_mut().unwrap();
-            if item < top.neighbour.item {
-                top.neighbour.item = item;
-                top.neighbour.distance = distance;
+            if item < top.neighbour.item() {
+                *top = BestNeighbourPoint::new_best(distance, item, entry.clone());
 		top.point.copy_from_slice(entry);
             }
         }

@@ -1,6 +1,6 @@
 use crate::float::kdtree::Axis;
 use crate::immutable::float::kdtree::ImmutableKdTree;
-use crate::nearest_neighbour::NearestNeighbour;
+use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
 use crate::traits::Content;
 use crate::traits::DistanceMetric;
 use az::Cast;

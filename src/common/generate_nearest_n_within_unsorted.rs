@@ -6,19 +6,25 @@ macro_rules! generate_nearest_n_within_unsorted {
             concat!$comments,
 
             #[inline]
-            pub fn nearest_n_within<D>(&self, query: &[A; K], dist: A, max_items: std::num::NonZero<usize>, sorted: bool) -> Vec<NearestNeighbour<A, T>>
+            pub fn nearest_n_within<D>(
+		&self,
+		query: &[A; K],
+		dist: A,
+		max_items: std::num::NonZero<usize>,
+		sorted: bool
+	    ) -> Vec<NearestNeighbour<A, T>>
             where
                 D: DistanceMetric<A, K>,
             {
 		let unit = [A::one(); K];
                 let result = if sorted || max_items < std::num::NonZero::new(usize::MAX).unwrap() {
                     if max_items <= std::num::NonZero::new(MAX_VEC_RESULT_SIZE).unwrap() {
-                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get(), sorted)
+                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
                     } else {
-                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get(), sorted)
+                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0, sorted)
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
                 };
 
                 if sorted {
@@ -42,12 +48,12 @@ macro_rules! generate_nearest_n_within_unsorted {
             {
 		let result = if sorted || max_items < std::num::NonZero::new(usize::MAX).unwrap() {
                     if max_items <= std::num::NonZero::new(MAX_VEC_RESULT_SIZE).unwrap() {
-                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get(), sorted)
+                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
                     } else {
-                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get(), sorted)
+                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, 0, sorted)
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, 0) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
                 };
 
                 if sorted {
@@ -63,7 +69,6 @@ macro_rules! generate_nearest_n_within_unsorted {
 		scale: &[A; K],
 		dist: A,
 		res_capacity: usize,
-		sorted: bool
             ) -> R
 	    where
 		R: ResultCollection<NearestNeighbour<A, T>, A, T, K>
@@ -119,6 +124,7 @@ macro_rules! generate_nearest_n_within_unsorted {
 
                     self.nearest_n_within_unsorted_recurse::<D, R>(
                         query,
+			scale,
                         radius,
                         closer_node_idx,
                         next_split_dim,
@@ -127,12 +133,13 @@ macro_rules! generate_nearest_n_within_unsorted {
                         rd,
                     );
 
-                    rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
                     if rd <= radius {
                         off[split_dim] = new_off;
                         self.nearest_n_within_unsorted_recurse::<D, R>(
                             query,
+			    scale,
                             radius,
                             further_node_idx,
                             next_split_dim,
@@ -153,16 +160,14 @@ macro_rules! generate_nearest_n_within_unsorted {
                         .enumerate()
                         .take(leaf_node.size.az::<usize>())
                         .for_each(|(idx, entry)| {
-                            let distance = D::dist(query, entry);
+                            let distance = D::dist(query, entry, scale);
 
                             if distance < radius {
-                                matching_items.add(NearestNeighbourPoint {
-				    neighbour: NearestNeighbour {
-					distance,
-					item: *leaf_node.content_items.get_unchecked(idx.az::<usize>()),
-                                    },
-				    point: entry.to_owned(),
-				})
+                                matching_items.add(NearestNeighbourPoint::new_nearest(
+                                    distance,
+                                    *leaf_node.content_items.get_unchecked(idx.az::<usize>()),
+                                    entry.to_owned()
+                                ))
                             }
                         });
                 }

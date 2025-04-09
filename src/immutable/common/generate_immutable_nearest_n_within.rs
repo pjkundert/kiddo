@@ -19,12 +19,12 @@ macro_rules! generate_immutable_nearest_n_within {
 		let unit = [A::one(); K];
                 let result = if sorted && max_items < usize::MAX {
                     if max_items <= MAX_VEC_RESULT_SIZE {
-                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items, sorted)
+                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items)
                     } else {
-                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items, sorted)
+                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items)
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0, sorted)
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0)
                 };
 
                 if sorted {
@@ -40,7 +40,6 @@ macro_rules! generate_immutable_nearest_n_within {
 		scale: &[A; K],
 		dist: A,
 		res_capacity: usize,
-		sorted: bool
             ) -> ResultCollection<A, T, K>
 	    where
 		R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
@@ -99,7 +98,7 @@ macro_rules! generate_immutable_nearest_n_within {
                 R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
             {
                 if level > self.max_stem_level as usize || self.stems.is_empty() {
-                    self.search_leaf_for_nearest_n_within::<D, R>(query, radius, matching_items, leaf_idx as usize);
+                    self.search_leaf_for_nearest_n_within::<D, R>(query, scale, radius, matching_items, leaf_idx as usize);
                     return;
                 }
 
@@ -133,12 +132,13 @@ macro_rules! generate_immutable_nearest_n_within {
                     closer_leaf_idx,
                 );
 
-                rd = Axis::rd_update(rd, D::dist1(new_off, old_off));
+                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
                 if rd <= radius && rd < matching_items.max_dist() {
                     off[split_dim] = new_off;
                     self.nearest_n_within_recurse::<D, R>(
                         query,
+			scale,
                         radius,
                         further_node_idx,
                         next_split_dim,
@@ -212,7 +212,7 @@ macro_rules! generate_immutable_nearest_n_within {
                     closer_leaf_idx,
                 );
 
-                rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
                 if rd <= radius && rd < matching_items.max_dist() {
                     off[split_dim] = new_off;

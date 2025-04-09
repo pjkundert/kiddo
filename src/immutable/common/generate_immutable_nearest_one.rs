@@ -9,15 +9,25 @@ macro_rules! generate_immutable_nearest_one {
                 where
                     D: DistanceMetric<A, K>,
             {
+		let unit = [A::one(); K];
+                self.nearest_one_point::<D>(query, &unit).neighbour()
+            }
+
+            #[inline]
+            pub fn nearest_one_point<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbourPoint<A, T, K>
+                where
+                    D: DistanceMetric<A, K>,
+            {
                 let mut off = [A::zero(); K];
-                let mut result = NearestNeighbour {
-                    distance: A::max_value(),
-                    item: T::default(),
-                };
+                let mut mut_nearest = NearestNeighbourPoint::new_nearest(
+                    A::max_value(),
+                    T::default(),
+		    [A::zero(); K],
+                );
 
                 if self.stems.is_empty() {
-                    self.search_leaf_for_nearest_one::<D>(query, &mut result, 0);
-                    return result;
+                    self.search_leaf_for_nearest_one::<D>(query, scale, &mut mut_nearest, 0);
+                    return mut_nearest;
                 }
 
                 #[cfg(not(feature = "modified_van_emde_boas"))]
@@ -28,9 +38,10 @@ macro_rules! generate_immutable_nearest_one {
                 #[cfg(not(feature = "modified_van_emde_boas"))]
                 self.nearest_one_recurse::<D>(
                     query,
+		    scale,
                     initial_stem_idx,
                     0,
-                    &mut result,
+                    &mut mut_nearest,
                     &mut off,
                     A::zero(),
                 );
@@ -38,9 +49,10 @@ macro_rules! generate_immutable_nearest_one {
                 #[cfg(feature = "modified_van_emde_boas")]
                 self.nearest_one_recurse::<D>(
                     query,
+		    scale,
                     initial_stem_idx,
                     0,
-                    &mut result,
+                    &mut mut_nearest,
                     &mut off,
                     A::zero(),
                     0,
@@ -48,7 +60,7 @@ macro_rules! generate_immutable_nearest_one {
                     0,
                 );
 
-                result
+		mut_nearest
             }
 
             #[allow(clippy::too_many_arguments)]
@@ -57,6 +69,7 @@ macro_rules! generate_immutable_nearest_one {
             fn nearest_one_recurse<D>(
                 &self,
                 query: &[A; K],
+                scale: &[A; K],
                 stem_idx: u32,
                 split_dim: u64,
                 nearest: &mut NearestNeighbour<A, T>,
@@ -65,15 +78,15 @@ macro_rules! generate_immutable_nearest_one {
                 mut level: i32,
                 mut minor_level: u32,
                 mut leaf_idx: u32,
-            )
-                where
-                    D: DistanceMetric<A, K>,
+            ) -> NearestNeighbourPoint<A, T, K>
+            where
+                D: DistanceMetric<A, K>,
             {
                 use cmov::Cmov;
                 use $crate::modified_van_emde_boas::modified_van_emde_boas_get_child_idx_v2_branchless;
 
                 if level > self.max_stem_level {
-                    self.search_leaf_for_nearest_one::<D>(query, nearest, leaf_idx as usize);
+                    self.search_leaf_for_nearest_one::<D>(query, scale, nearest, leaf_idx as usize);
                     return;
                 }
 
@@ -100,6 +113,7 @@ macro_rules! generate_immutable_nearest_one {
 
                 self.nearest_one_recurse::<D>(
                     query,
+		    scale,
                     closer_node_idx,
                     next_split_dim,
                     nearest,
@@ -110,12 +124,13 @@ macro_rules! generate_immutable_nearest_one {
                     closer_leaf_idx,
                 );
 
-                rd = Axis::rd_update(rd, D::dist1(new_off, old_off));
+                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
                 if rd <= nearest.distance {
                     off[split_dim as usize] = new_off;
                     self.nearest_one_recurse::<D>(
                         query,
+			scale,
                         further_node_idx,
                         next_split_dim,
                         nearest,
@@ -135,6 +150,7 @@ macro_rules! generate_immutable_nearest_one {
             fn nearest_one_recurse<D>(
                 &self,
                 query: &[A; K],
+                scale: &[A; K],
                 stem_idx: usize,
                 split_dim: u64,
                 nearest: &mut NearestNeighbour<A, T>,
@@ -171,6 +187,7 @@ macro_rules! generate_immutable_nearest_one {
 
                 self.nearest_one_recurse::<D>(
                     query,
+		    scale,
                     closer_node_idx,
                     next_split_dim,
                     nearest,
@@ -178,12 +195,13 @@ macro_rules! generate_immutable_nearest_one {
                     rd,
                 );
 
-                rd = Axis::rd_update(rd, D::dist1(new_off, old_off));
+                rd = D::accumulate(rd, D::dist1(new_off, old_off));
 
                 if rd <= nearest.distance {
                     off[split_dim as usize] = new_off;
                     self.nearest_one_recurse::<D>(
                         query,
+			scale,
                         further_node_idx,
                         next_split_dim,
                         nearest,
@@ -198,7 +216,8 @@ macro_rules! generate_immutable_nearest_one {
             fn search_leaf_for_nearest_one<D>(
                 &self,
                 query: &[A; K],
-                nearest: &mut NearestNeighbour<A, T>,
+                scale: &[A; K],
+                nearest: &mut NearestNeighbourPoint<A, T, K>,
                 leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
@@ -207,8 +226,10 @@ macro_rules! generate_immutable_nearest_one {
 
                 leaf_slice.nearest_one::<D>(
                     query,
-                    &mut nearest.distance,
-                    &mut nearest.item
+		    scale,
+                    &mut nearest.neighbour.0.distance,
+                    &mut nearest.neighbour.0.item,
+		    &mut nearest.point,
                 );
             }
         }

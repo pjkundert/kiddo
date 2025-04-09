@@ -9,7 +9,7 @@ macro_rules! generate_nearest_one {
                 where
                     D: DistanceMetric<A, K>,
             {
-		let unit = [A::one(); K];
+                let unit = [A::one(); K];
                 self.nearest_one_point::<D>(query, &unit).neighbour
             }
 
@@ -20,18 +20,18 @@ macro_rules! generate_nearest_one {
             {
                 let mut nearest_entry = [A::zero(); K];
                 let mut off = [A::zero(); K];
+
                 unsafe {
                     self.nearest_one_recurse::<D>(
                         query,
                         scale,
                         self.root_index,
                         0,
-                        NearestNeighbourPoint {
-			    neighbour: NearestNeighbour {
-				distance: A::max_value(), item: T::default()
-			    },
-			    point: [A::zero(); K],
-			},
+                        NearestNeighbourPoint::new_nearest(
+                            A::max_value(),
+                            T::default(),
+                            [A::zero(); K]
+                        ),
                         &mut off,
                         A::zero(),
                     )
@@ -54,7 +54,18 @@ macro_rules! generate_nearest_one {
             {
                 if is_stem_index(curr_node_idx) {
                     let node = &self.stems.get_unchecked(curr_node_idx.az::<usize>());
-
+		    //
+		    // Compute the absolute difference between the last node.split_val
+		    // for this axis, and the current.  So, some
+		    //                             v
+		    // |---------------------------|------------------------|
+		    // ... (other axes) ...
+		    //        v
+		    // |------|--------------------|
+		    //
+		    //         <------------------>
+		    //            added to 'rd'
+		    //            (after D::dist1 computed on the range)
                     let mut rd = rd;
                     let old_off = off[split_dim];
                     let new_off = query[split_dim].saturating_dist(node.split_val);
@@ -69,7 +80,7 @@ macro_rules! generate_nearest_one {
 
                     let nearest_neighbour = self.nearest_one_recurse::<D>(
                         query,
-			scale,
+                        scale,
                         closer_node_idx,
                         next_split_dim,
                         nearest,
@@ -81,13 +92,36 @@ macro_rules! generate_nearest_one {
                         nearest = nearest_neighbour;
                     }
 
-                    rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
+		    // TODO: This accumulates a radius 'rd' as we spiral down through each dimension,
+		    // and assumes two things;
+		    //
+		    // 1) that each offset is uniformly more distant from the origin than the old, because
+		    //    dist1 is (usually) an absolute value, and we're (usually) summing.
+		    // 2) That the accumulation is linear and can accumulate piecewise (so, no "squared" calculations
+		    //    allowed, because (a+b)^2 != a^2 + b^2.
+		    //
+		    // These are not sound assumptions, IMHO.  How is this working? Furthermore,
+		    // since we're starting off with rd == 0, and adding radius offsets for each
+		    // recursion, how is the accumulated rd ever "less than" on any recursive call?
+		    // Ah, because it is accumulating the inner-most extent of this node's
+		    // dimension, and only if it is "closer" than the nearest thus far, could it
+		    // possibly contain closer points?
+		    //
+		    // This certainly won't work for Rectangular regions, which take the minimum of
+		    // all dimensions as their radius.  I suspect it also won't work for eg. 3-D
+		    // trees that are *more* than 3 layers deep, nor if old_off is not 0 (we could
+		    // maintain this as a shortcut for a full D::dist for old_off == 0)
+                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+		    let mut new = off.clone();
+		    new[split_dim] = new_off;
+		    println!("rd w/ off[{}] == {:?} vs {:?}: {:?}, vs. dist: {:?}",
+			     split_dim, old_off, new_off, rd, D::dist(off, &new, scale));
 
                     if rd <= nearest.neighbour.distance {
                         off[split_dim] = new_off;
                         let result = self.nearest_one_recurse::<D>(
                             query,
-			    scale,
+                            scale,
                             further_node_idx,
                             next_split_dim,
                             nearest,
@@ -107,7 +141,7 @@ macro_rules! generate_nearest_one {
 
                     Self::search_content_for_nearest::<D>(
                         query,
-			scale,
+                        scale,
                         &mut nearest,
                         leaf_node,
                     );

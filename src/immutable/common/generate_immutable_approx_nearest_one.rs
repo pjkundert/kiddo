@@ -22,6 +22,7 @@ macro_rules! generate_immutable_approx_nearest_one {
                 let mut dim: usize = 0;
                 let mut best_item = T::default();
                 let mut best_dist = A::max_value();
+		let mut best_point = [A::zero(); K];
                 let mut level: usize = 0;
                 let mut leaf_idx: usize = 0;
 
@@ -54,14 +55,13 @@ macro_rules! generate_immutable_approx_nearest_one {
 
                 leaf_slice.nearest_one::<D>(
                     query,
+		    &[A::one(); K],
                     &mut best_dist,
-                    &mut best_item
+                    &mut best_item,
+		    &mut best_point,
                 );
 
-                NearestNeighbour {
-                    distance: best_dist,
-                    item: best_item,
-                }
+                NearestNeighbourPoint::new_nearest( best_dist, best_item, best_point ).neighbour
             }
         }
     };

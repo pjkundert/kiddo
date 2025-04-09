@@ -109,7 +109,7 @@ macro_rules! generate_within_unsorted_iter {
                         rd,
                     );
 
-                    rd = Axis::rd_update(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
 
                     if rd <= radius {
                         off[split_dim] = new_off;
@@ -139,13 +139,11 @@ macro_rules! generate_within_unsorted_iter {
                             let distance = D::dist(query, entry, scale);
 
                             if distance < radius {
-                                gen_scope.yield_with( NearestNeighbourPoint {
-				    neighbour: NearestNeighbour {
-					distance,
-					item: *leaf_node.content_items.get_unchecked(idx.az::<usize>()),
-                                    },
-				    point: entry.to_owned(),
-				});
+                                gen_scope.yield_with(NearestNeighbourPoint::new_nearest(
+                                    distance,
+                                    *leaf_node.content_items.get_unchecked(idx.az::<usize>()),
+                                    entry.to_owned()
+                                ));
                             }
                         });
                 }

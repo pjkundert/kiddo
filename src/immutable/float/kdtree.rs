@@ -12,7 +12,7 @@
 //! values, or [`f16`](https://docs.rs/half/latest/half/struct.f16.html) if the `f16` feature is enabled
 
 pub use crate::float::kdtree::Axis;
-use crate::float_leaf_slice::leaf_slice::{LeafSlice, LeafSliceFloat, LeafSliceFloatChunk};
+use crate::float_leaf_slice::leaf_slice::{LeafSlice, LeafSliceFloatChunk};
 #[cfg(feature = "modified_van_emde_boas")]
 use crate::modified_van_emde_boas::modified_van_emde_boas_get_child_idx_v2_branchless;
 use crate::traits::Content;
@@ -82,7 +82,7 @@ pub struct ImmutableKdTreeRK<A: Copy + Default, T: Copy + Default, const K: usiz
 impl<A: Axis, T: Content, const K: usize, const B: usize> From<ImmutableKdTree<A, T, K, B>>
     for ImmutableKdTreeRK<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {
@@ -186,7 +186,7 @@ impl<
 #[cfg(feature = "rkyv")]
 impl<A, T, const K: usize, const B: usize> AlignedArchivedImmutableKdTree<'_, A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K> + rkyv::Archive<Archived = A>,
+    A: Axis + LeafSliceFloatChunk<T, K> + rkyv::Archive<Archived = A>,
     T: Content + rkyv::Archive<Archived = T>,
     usize: Cast<T>,
 {
@@ -215,7 +215,7 @@ where
 impl<A: Axis, T: Content, const K: usize, const B: usize> From<&[[A; K]]>
     for ImmutableKdTree<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {
@@ -246,7 +246,7 @@ where
 #[allow(unexpected_cfgs)]
 impl<A, T, const K: usize, const B: usize> ImmutableKdTree<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {
