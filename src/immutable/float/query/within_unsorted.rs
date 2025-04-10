@@ -1,5 +1,5 @@
 use crate::float::kdtree::Axis;
-use crate::float_leaf_slice::leaf_slice::{LeafSliceFloat, LeafSliceFloatChunk};
+use crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk;
 use crate::generate_immutable_within_unsorted;
 use crate::immutable::float::kdtree::ImmutableKdTree;
 use crate::nearest_neighbour::NearestNeighbour;
@@ -34,7 +34,7 @@ assert_eq!(within.len(), 2);
 
 impl<A: Axis, T: Content, const K: usize, const B: usize> ImmutableKdTree<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {

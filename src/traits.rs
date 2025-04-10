@@ -106,26 +106,19 @@ pub(crate) fn is_stem_index<IDX: Index<T = IDX>>(x: IDX) -> bool {
 }
 
 /// Trait that needs to be implemented by any potential distance metric to be used within queries.
-/// The Axis trait types provide these .saturating implementations for the native f32/f64 types.
+/// The Axis trait types provide these .saturating implementations for the native f32/f64 types.  We
+/// cannot define defaults here, because we need the local fixed or float Axis trait as appropriate.
 pub trait DistanceMetric<A, const K: usize> {
     /// Accumulates the Axis distances as appropriate for the metric.  Default is to simply sum the
     /// distance metrics (ie. Manhattan).  Always use Self::accumulate even for a single Self::dist1
     /// result, as this could alter the distance (eg. for squared Euclidean).  All Axis types have
     /// an appropriate .saturating_add, which may be a simple addition for floating-point types with
     /// +/- inf.  For fixed-point types, the native .saturating_add is more appropriate.
-    #[inline]
-    fn accumulate(acc: A, dist: A) -> A {
-	acc.saturating_add(dist)
-    }
+    fn accumulate(acc: A, dist: A) -> A;
 
     /// Returns the distance between two K-d points, as measured by a particular distance metric.
     /// Default is to simply accumulate the K distance metrics.
-    #[inline]
-    fn dist(a: &[A; K], b: &[A; K], scale: &[A; K]) -> A {
-	(0..K)
-	    .map(|i| Self::dist1( a[i], b[i], scale[i]))
-	    .fold(A::zero(), Self::accumulate)
-    }
+    fn dist(a: &[A; K], b: &[A; K], scale: &[A; K]) -> A;
 
     /// Returns the distance between two points along a single axis, as measured by a particular
     /// distance metric.  Default is a simple absolute (ie. Manhattan) distance.
@@ -141,9 +134,7 @@ pub trait DistanceMetric<A, const K: usize> {
     /// that could ignore sign, like squared Euclidean.  However, the automatic NaN handling may be
     /// worth the investment...  For fixed types that do not saturate to +/- inf, using .saturating_dist
     /// is the appropriate choice.
-    fn dist1(a: A, b: A, scale: A) -> A {
-	a.saturating_dist(b).saturating_mul(scale)
-    }
+    fn dist1(a: A, b: A, scale: A) -> A;
 }
 
 

@@ -1,7 +1,7 @@
 use az::Cast;
 
 use crate::float::kdtree::Axis;
-use crate::float_leaf_slice::leaf_slice::{LeafSliceFloat, LeafSliceFloatChunk};
+use crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk;
 use crate::generate_immutable_nearest_one;
 use crate::immutable::float::kdtree::ImmutableKdTree;
 use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
@@ -37,7 +37,7 @@ to not needing to allocate memory or maintain sorted results.
 
 impl<A, T, const K: usize, const B: usize> ImmutableKdTree<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {
@@ -56,7 +56,7 @@ use crate::immutable::float::kdtree::AlignedArchivedImmutableKdTree;
 #[cfg(feature = "rkyv")]
 impl<A, T, const K: usize, const B: usize> AlignedArchivedImmutableKdTree<'_, A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K> + rkyv::Archive<Archived = A>,
+    A: Axis + LeafSliceFloatChunk<T, K> + rkyv::Archive<Archived = A>,
     T: Content + rkyv::Archive<Archived = T>,
     usize: Cast<T>,
 {

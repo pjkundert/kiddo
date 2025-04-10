@@ -17,7 +17,7 @@ macro_rules! generate_immutable_nearest_n_within {
             {
                 let max_items = max_items.into();
 		let unit = [A::one(); K];
-                let result = if sorted && max_items < usize::MAX {
+                let result: ResultCollection<NearestNeighbour<A, T>> = if sorted && max_items < usize::MAX {
                     if max_items <= MAX_VEC_RESULT_SIZE {
                         self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items)
                     } else {
@@ -40,7 +40,7 @@ macro_rules! generate_immutable_nearest_n_within {
 		scale: &[A; K],
 		dist: A,
 		res_capacity: usize,
-            ) -> ResultCollection<A, T, K>
+            ) -> R
 	    where
 		R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
 	    {
@@ -247,7 +247,7 @@ macro_rules! generate_immutable_nearest_n_within {
             {
                 let leaf_slice = self.get_leaf_slice(leaf_idx);
 
-                leaf_slice.nearest_n_within_points::<D, R>(
+                leaf_slice.nearest_n_within::<D, NearestNeighbour<A, T>, R>(
                     query,
                     scale,
                     radius,

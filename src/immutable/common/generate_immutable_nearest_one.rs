@@ -10,7 +10,7 @@ macro_rules! generate_immutable_nearest_one {
                     D: DistanceMetric<A, K>,
             {
 		let unit = [A::one(); K];
-                self.nearest_one_point::<D>(query, &unit).neighbour()
+                self.nearest_one_point::<D>(query, &unit).neighbour
             }
 
             #[inline]
@@ -153,7 +153,7 @@ macro_rules! generate_immutable_nearest_one {
                 scale: &[A; K],
                 stem_idx: usize,
                 split_dim: u64,
-                nearest: &mut NearestNeighbour<A, T>,
+                nearest: &mut NearestNeighbourPoint<A, T, K>,
                 off: &mut [A; K],
                 rd: A,
             )
@@ -163,7 +163,7 @@ macro_rules! generate_immutable_nearest_one {
                 use cmov::Cmov;
 
                 if stem_idx >= self.stems.len() {
-                    self.search_leaf_for_nearest_one::<D>(query, nearest, stem_idx - self.stems.len());
+                    self.search_leaf_for_nearest_one::<D>(query, scale, nearest, stem_idx - self.stems.len());
                     return;
                 }
 
@@ -195,9 +195,9 @@ macro_rules! generate_immutable_nearest_one {
                     rd,
                 );
 
-                rd = D::accumulate(rd, D::dist1(new_off, old_off));
+                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim as usize]));
 
-                if rd <= nearest.distance {
+                if rd <= nearest.neighbour.distance {
                     off[split_dim as usize] = new_off;
                     self.nearest_one_recurse::<D>(
                         query,

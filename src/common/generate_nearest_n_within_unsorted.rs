@@ -17,14 +17,14 @@ macro_rules! generate_nearest_n_within_unsorted {
                 D: DistanceMetric<A, K>,
             {
 		let unit = [A::one(); K];
-                let result = if sorted || max_items < std::num::NonZero::new(usize::MAX).unwrap() {
+                let result: ResultCollection<NearestNeighbour<A, K>> = if sorted || max_items < std::num::NonZero::new(usize::MAX).unwrap() {
                     if max_items <= std::num::NonZero::new(MAX_VEC_RESULT_SIZE).unwrap() {
-                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
+                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get())
                     } else {
-                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
+                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items.get())
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0)
                 };
 
                 if sorted {
@@ -46,14 +46,14 @@ macro_rules! generate_nearest_n_within_unsorted {
             where
                 D: DistanceMetric<A, K>,
             {
-		let result = if sorted || max_items < std::num::NonZero::new(usize::MAX).unwrap() {
+		let result: ResultCollection<NearestNeighbour<A, K>> = if sorted || max_items < std::num::NonZero::new(usize::MAX).unwrap() {
                     if max_items <= std::num::NonZero::new(MAX_VEC_RESULT_SIZE).unwrap() {
-                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
+                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get())
                     } else {
-                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get()) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
+                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, max_items.get())
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, 0) as ResultCollection<NearestNeighbour<A, T>, A, T, K>
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, scale, dist, 0)
                 };
 
                 if sorted {

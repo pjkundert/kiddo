@@ -4,21 +4,37 @@ macro_rules! generate_immutable_best_n_within {
     ($comments:tt) => {
         doc_comment! {
             concat!$comments,
+	    #[inline]
+	    pub fn best_n_within<D>(
+		&self,
+		query: &[A; K],
+		dist: A,
+		max_qty: NonZero<usize>,
+	    ) -> impl Iterator<Item = BestNeighbour<A, T>>
+	    where
+		D: DistanceMetric<A, K>,
+	    {
+		let unit = [A::one(); K];
+		self.best_n_within_points::<D>(query, &unit, dist, max_qty)
+		    .into_iter()
+		    .map(|bnp| bnp.neighbour)
+	    }
+
             #[inline]
-            pub fn best_n_within<D>(
+            pub fn best_n_within_points<D>(
                 &self,
                 query: &[A; K],
+                scale: &[A; K],
                 dist: A,
                 max_qty: NonZero<usize>,
-            ) -> impl Iterator<Item = BestNeighbour<A, T>>
+            ) -> impl Iterator<Item = BestNeighbourPoint<A, T, K>>
             where
-                A: LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
+                A: LeafSliceFloatChunk<T, K>,
                 usize: Cast<T>,
                 D: DistanceMetric<A, K>,
             {
                 let mut off = [A::zero(); K];
-                let mut best_items: BinaryHeap<BestNeighbour<A, T>> = BinaryHeap::new();
-		let scale = [A::one(); K];
+                let mut best_items: BinaryHeap<BestNeighbourPoint<A, T, K>> = BinaryHeap::new();
 
                 #[cfg(not(feature = "modified_van_emde_boas"))]
                 let initial_stem_idx = 1;
@@ -69,13 +85,13 @@ macro_rules! generate_immutable_best_n_within {
                 max_qty: usize,
                 stem_idx: usize,
                 split_dim: usize,
-                best_items: &mut BinaryHeap<BestNeighbour<A, T>>,
+                best_items: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
                 off: &mut [A; K],
                 rd: A,
                 mut level: usize,
                 mut leaf_idx: usize,
             ) where
-                A: LeafSliceFloat<T, K> + LeafSliceFloatChunk<T, K>,
+                A: LeafSliceFloatChunk<T, K>,
                 usize: Cast<T>,
                 D: DistanceMetric<A, K>,
             {
@@ -153,7 +169,7 @@ macro_rules! generate_immutable_best_n_within {
                 mut minor_level: u32,
                 mut leaf_idx: usize,
             ) where
-                A: LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+                A: LeafSliceFloatChunk<T, K>,
                 usize: Cast<T>,
                 D: DistanceMetric<A, K>,
             {
@@ -228,14 +244,14 @@ macro_rules! generate_immutable_best_n_within {
                 scale: &[A; K],
                 radius: A,
                 max_qty: usize,
-                results: &mut BinaryHeap<BestNeighbour<A, T>>,
+                results: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
                 leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
             {
                 let leaf_slice = self.get_leaf_slice(leaf_idx);
 
-                leaf_slice.best_n_within::<D>(
+                leaf_slice.best_n_within::<D, BestNeighbour<A, T>, BinaryHeap<BestNeighbourPoint<A, T, K>>>(
                     query,
 		    scale,
                     radius,

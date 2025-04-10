@@ -210,7 +210,7 @@ where
     A: PartialOrd,
     T: Content,
 {
-    pub neighbour: NeighbourEntry<A, T>,
+    pub neighbour: NeighbourEntry<A, T>, // Cannot simply use N because of unused trait bounds
     pub point: [A; K],
 }
 

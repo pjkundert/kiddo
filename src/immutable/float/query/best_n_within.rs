@@ -3,12 +3,13 @@ use std::collections::BinaryHeap;
 use std::num::NonZero;
 use std::ops::Rem;
 
-use crate::best_neighbour::BestNeighbour;
+use crate::best_neighbour::{BestNeighbour, BestNeighbourPoint};
 use crate::float::kdtree::Axis;
-use crate::float_leaf_slice::leaf_slice::{LeafSliceFloatChunk};
+use crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk;
 use crate::immutable::float::kdtree::ImmutableKdTree;
 use crate::traits::Content;
 use crate::traits::DistanceMetric;
+use crate::float::result_collection::ResultCollection;
 
 use crate::generate_immutable_best_n_within;
 

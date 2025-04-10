@@ -4,7 +4,7 @@ use std::ops::Rem;
 
 use crate::distance_metric::DistanceMetric;
 use crate::float::kdtree::Axis;
-use crate::float_leaf_slice::leaf_slice::LeafSliceFloat;
+use crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk;
 use crate::immutable::float::kdtree::ImmutableKdTree;
 use crate::nearest_neighbour::NearestNeighbour;
 use crate::types::Content;
@@ -40,7 +40,7 @@ assert_eq!(within.len(), 2);
 impl<'a, A: Axis, T: Content, const K: usize, const B: usize>
 ImmutableKdTree<A, T, K, B>
 where
-    A: Axis + LeafSliceFloat<T> + LeafSliceFloatChunk<T, K>,
+    A: Axis + LeafSliceFloatChunk<T, K>,
     T: Content,
     usize: Cast<T>,
 {
