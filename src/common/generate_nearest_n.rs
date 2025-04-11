@@ -9,7 +9,7 @@ macro_rules! generate_nearest_n {
     where
         D: DistanceMetric<A, K>,
     {
-        let mut unit = [A::one(); K];
+        let unit = [A::one(); K];
         self.nearest_n_points::<D>(query, &unit, qty).iter().map(|(nn,_p)| nn.to_owned()).collect()
     }
 

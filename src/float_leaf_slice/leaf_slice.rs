@@ -15,36 +15,42 @@ pub(crate) struct LeafFixedSlice<'a, A: Axis, T: Content, const K: usize, const 
     pub content_items: &'a [T; C],
 }
 
-impl<A, T, const K: usize, const C: usize> LeafFixedSlice<'_, A, T, K, C>
-where
-    A: Axis + LeafSliceFloatChunk<T, K>,
-    T: Content,
-    usize: Cast<T>,
-{
-    #[allow(dead_code)]
-    #[inline]
-    pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T)
-    where
-        D: DistanceMetric<A, K>,
-    {
-        // Calculate distances for all points in this chunk
-        let mut acc = [A::zero(); C];
+// impl<A, T, const K: usize, const C: usize> LeafFixedSlice<'_, A, T, K, C>
+// where
+//     A: Axis + LeafSliceFloatChunk<T, K>,
+//     T: Content,
+//     usize: Cast<T>,
+// {
+//     #[allow(dead_code)]
+//     #[inline]
+//     pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T)
+//     where
+//         D: DistanceMetric<A, K>,
+//     {
+//         // Calculate distances for all points in this chunk
+//         let mut acc = [A::zero(); C];
         
-        // For each dimension
-        (0..K).step_by(1).for_each(|dim| {
-            // For each point in the chunk
-            (0..C).step_by(1).for_each(|idx| {
-                // Accumulate distance in this dimension
-                acc[idx] = D::accumulate(acc[idx], D::dist1(
-                    self.content_points[dim][idx], query[dim], scale[dim]
-                ));
-            });
-        });
+//         // For each dimension
+//         (0..K).step_by(1).for_each(|dim| {
+//             // For each point in the chunk
+//             (0..C).step_by(1).for_each(|idx| {
+//                 // Accumulate distance in this dimension
+//                 acc[idx] = D::accumulate(acc[idx], D::dist1(
+//                     self.content_points[dim][idx], query[dim], scale[dim]
+//                 ));
+//             });
+//         });
         
-        // Update the best distance and item if we found a better one
-        A::update_nearest_dist(acc, self.content_items, best_dist, best_item);
-    }
-}
+//         // Update the best distance and item if we found a better one
+//         // Iterate through the accumulated distances and check if any is better than the current best
+//         for i in 0..C {
+//             if acc[i] < *best_dist {
+//                 *best_dist = acc[i];
+//                 *best_item = self.content_items[i];
+//             }
+//         }
+//     }
+// }
 
 #[doc(hidden)]
 #[derive(Debug)]
@@ -164,7 +170,7 @@ where
         let mut nearest: Option<NearestNeighbourPoint<A, T, K>> = None;
         let one = |distance: A, item: T, results: &mut Option<NearestNeighbourPoint<A, T, K>>| -> bool {
             match results {
-                Some(nnp) => distance < nnp.distance(),
+                Some(nnp) => distance < nnp.neighbour.distance(),
                 None => true,
             }
         };
@@ -189,11 +195,11 @@ where
     pub(crate) fn nearest_n_within<D, N, R>(&self, query: &[A; K], scale: &[A; K], radius: A, results: &mut R)
     where
         D: DistanceMetric<A, K>,
-        N: NeighbourEntry<A, T>,
+        N: NeighbourEntry<A, T> + Clone,
         R: ResultCollection<N, A, T, K>,
     {
         // Function to check if this distance is within radius
-        let within = |distance: A, item: T, results: &mut R| -> bool {
+        let within = |distance: A, _item: T, _results: &mut R| -> bool {
             distance <= radius 
         };
 
@@ -207,7 +213,7 @@ where
     }
 
     /// Find the best N neighbors within a radius, keeping only the best items up to max_qty
-    /// Any sorted ResultCollection container with peek() and pop() should work.
+    /// Any ordered ResultCollection container with peek() and pop() should work.
     #[inline]
     pub(crate) fn best_n_within<D, N, R>(&self, query: &[A; K], scale: &[A; K], radius: A, max_qty: usize, results: &mut R)
     where
@@ -218,13 +224,13 @@ where
         // Function to check if this distance is within radius *and* better than worst entry (if full)
         let n_within = |distance: A, item: T, results: &mut R| -> bool {
             if distance <= radius {
-                if results.len() < max_qty {
+                if results.result_len() < max_qty {
                     return true;
                 }
-                if let Some(worst) = results.peek() {
-                    if item < worst.0.item {
+                if let Some(worst) = results.result_peek() {
+                    if item < worst.neighbour.item() {
                         // Remove the worst (greatest) item, if ours is better (less)
-                        results.pop();
+                        results.result_pop();
                         return true;
                     }
                 }

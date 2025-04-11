@@ -1,11 +1,12 @@
 use crate::traits::Content;
 use std::cmp::Ordering;
+use std::marker::PhantomData;
 
 /// Common base struct for all neighbour entries
 #[derive(Debug, Copy, Clone)]
 pub struct Neighbour<A, T>
 where
-    A: PartialOrd,
+    A: PartialOrd + Copy,
     T: Content,
 {
     /// the distance of the found item from the query point according to the supplied distance metric
@@ -14,7 +15,7 @@ where
     pub item: T,
 }
 
-impl<A: PartialOrd, T: Content> Neighbour<A, T> {
+impl<A: PartialOrd + Copy, T: Content> Neighbour<A, T> {
     /// Create a new Neighbour with distance and item
     pub fn new(distance: A, item: T) -> Self {
         Self { distance, item }
@@ -22,9 +23,9 @@ impl<A: PartialOrd, T: Content> Neighbour<A, T> {
 }
 
 /// A common trait for neighbour entries used in search results
-pub trait NeighbourEntry<A, T>
+pub trait NeighbourEntry<A, T>: Clone
 where
-    A: PartialOrd,
+    A: PartialOrd + Copy,
     T: Content,
 {
     /// Create a new neighbour entry with distance and item
@@ -47,7 +48,7 @@ where
 }
 
 /// Implement the NeighbourEntry trait for the base Neighbour struct
-impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for Neighbour<A, T> {
+impl<A: PartialOrd + Copy, T: Content> NeighbourEntry<A, T> for Neighbour<A, T> {
     fn new(distance: A, item: T) -> Self {
         Neighbour { distance, item }
     }
@@ -75,37 +76,37 @@ impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for Neighbour<A, T> {
 
 /// Wrapper for ordering by distance (ascending) - used for nearest neighbour queries
 #[derive(Debug, Copy, Clone)]
-pub struct NearestNeighbour<A: PartialOrd, T: Content>(pub Neighbour<A, T>);
+pub struct NearestNeighbour<A: PartialOrd + Copy, T: Content>(pub Neighbour<A, T>);
 
-impl<A: PartialOrd, T: Content> NearestNeighbour<A, T> {
+impl<A: Copy + PartialOrd, T: Content> NearestNeighbour<A, T> {
     /// Create a new NearestNeighbour
     pub fn new(distance: A, item: T) -> Self {
         Self(Neighbour::new(distance, item))
     }
 }
 
-impl<A: PartialOrd, T: Content> Ord for NearestNeighbour<A, T> {
+impl<A: PartialOrd + Copy, T: Content> Ord for NearestNeighbour<A, T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap_or(Ordering::Equal)
     }
 }
 
-impl<A: PartialOrd, T: Content> PartialEq for NearestNeighbour<A, T> {
+impl<A: PartialOrd + Copy, T: Content> PartialEq for NearestNeighbour<A, T> {
     fn eq(&self, other: &Self) -> bool {
         self.0.distance == other.0.distance && self.0.item == other.0.item
     }
 }
 
-impl<A: PartialOrd + PartialEq, T: Content> PartialOrd for NearestNeighbour<A, T> {
+impl<A: PartialOrd + Copy + PartialEq, T: Content> PartialOrd for NearestNeighbour<A, T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.0.distance.partial_cmp(&other.0.distance)
     }
 }
 
-impl<A: PartialOrd + PartialEq, T: Content> Eq for NearestNeighbour<A, T> {}
+impl<A: Copy + PartialOrd + PartialEq, T: Content> Eq for NearestNeighbour<A, T> {}
 
 // Implement NeighbourEntry for NearestNeighbour wrapper
-impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for NearestNeighbour<A, T> {
+impl<A: Copy + PartialOrd, T: Content> NeighbourEntry<A, T> for NearestNeighbour<A, T> {
     fn new(distance: A, item: T) -> Self {
         Self(Neighbour::new(distance, item))
     }
@@ -133,37 +134,37 @@ impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for NearestNeighbour<A, T> 
 
 /// Wrapper for ordering by item (ascending) - used for best neighbour queries
 #[derive(Debug, Copy, Clone)]
-pub struct BestNeighbour<A: PartialOrd, T: Content>(pub Neighbour<A, T>);
+pub struct BestNeighbour<A: Copy + PartialOrd, T: Content>(pub Neighbour<A, T>);
 
-impl<A: PartialOrd, T: Content> BestNeighbour<A, T> {
+impl<A: Copy + PartialOrd, T: Content> BestNeighbour<A, T> {
     /// Create a new BestNeighbour
     pub fn new(distance: A, item: T) -> Self {
         Self(Neighbour::new(distance, item))
     }
 }
 
-impl<A: PartialOrd, T: Content> Ord for BestNeighbour<A, T> {
+impl<A: Copy + PartialOrd, T: Content> Ord for BestNeighbour<A, T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap_or(Ordering::Equal)
     }
 }
 
-impl<A: PartialOrd, T: Content> PartialEq for BestNeighbour<A, T> {
+impl<A: Copy + PartialOrd, T: Content> PartialEq for BestNeighbour<A, T> {
     fn eq(&self, other: &Self) -> bool {
         self.0.distance == other.0.distance && self.0.item == other.0.item
     }
 }
 
-impl<A: PartialOrd, T: Content> PartialOrd for BestNeighbour<A, T> {
+impl<A: Copy + PartialOrd, T: Content> PartialOrd for BestNeighbour<A, T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.0.item.partial_cmp(&other.0.item)
     }
 }
 
-impl<A: PartialOrd + PartialEq, T: Content> Eq for BestNeighbour<A, T> {}
+impl<A: Copy + PartialOrd + PartialEq, T: Content> Eq for BestNeighbour<A, T> {}
 
 // Implement NeighbourEntry for BestNeighbour wrapper
-impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for BestNeighbour<A, T> {
+impl<A: Copy + PartialOrd, T: Content> NeighbourEntry<A, T> for BestNeighbour<A, T> {
     fn new(distance: A, item: T) -> Self {
         Self(Neighbour::new(distance, item))
     }
@@ -190,13 +191,13 @@ impl<A: PartialOrd, T: Content> NeighbourEntry<A, T> for BestNeighbour<A, T> {
 }
 
 // Implement From for NearestNeighbour and BestNeighbour to convert to tuple
-impl<A: PartialOrd, T: Content> From<NearestNeighbour<A, T>> for (A, T) {
+impl<A: Copy + PartialOrd, T: Content> From<NearestNeighbour<A, T>> for (A, T) {
     fn from(neighbour: NearestNeighbour<A, T>) -> Self {
         neighbour.0.into_tuple()
     }
 }
 
-impl<A: PartialOrd, T: Content> From<BestNeighbour<A, T>> for (A, T) {
+impl<A: Copy + PartialOrd, T: Content> From<BestNeighbour<A, T>> for (A, T) {
     fn from(neighbour: BestNeighbour<A, T>) -> Self {
         neighbour.0.into_tuple()
     }
@@ -207,29 +208,45 @@ impl<A: PartialOrd, T: Content> From<BestNeighbour<A, T>> for (A, T) {
 pub struct NeighbourPoint<N, A, T, const K: usize>
 where
     N: NeighbourEntry<A, T>,
-    A: PartialOrd,
+    A: Copy + PartialOrd,
     T: Content,
 {
-    pub neighbour: NeighbourEntry<A, T>, // Cannot simply use N because of unused trait bounds
+    pub neighbour: N, // A type w/ trait N; Cannot simply use N because of unused trait bounds?
     pub point: [A; K],
+    /// Marker for the unused type parameter T
+    _phantom: PhantomData<T>,
 }
 
 impl<N, A, T, const K: usize> NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T>,
-    A: PartialOrd,
+    A: Copy + PartialOrd,
     T: Content,
 {
     /// Create a new NeighbourPoint with a neighbour entry and point
     pub fn new(neighbour: N, point: [A; K]) -> Self {
-        Self { neighbour, point }
+        Self { 
+            neighbour, 
+            point,
+            _phantom: PhantomData,
+        }
+    }
+    
+    /// Get the distance of this neighbour point
+    pub fn distance(&self) -> A {
+        self.neighbour.distance()
+    }
+    
+    /// Get the item of this neighbour point
+    pub fn item(&self) -> T {
+        self.neighbour.item()
     }
 }
 
 /// Type alias for NeighbourPoint with NearestNeighbour ordering
 pub type NearestNeighbourPoint<A, T, const K: usize> = NeighbourPoint<NearestNeighbour<A, T>, A, T, K>;
 
-impl<A: PartialOrd, T: Content, const K: usize> NearestNeighbourPoint<A, T, K> {
+impl<A: Copy + PartialOrd, T: Content, const K: usize> NearestNeighbourPoint<A, T, K> {
     /// Create a new NearestNeighbourPoint
     pub fn new_nearest(distance: A, item: T, point: [A; K]) -> Self {
         Self::new(NearestNeighbour::new(distance, item), point)
@@ -239,7 +256,7 @@ impl<A: PartialOrd, T: Content, const K: usize> NearestNeighbourPoint<A, T, K> {
 /// Type alias for NeighbourPoint with BestNeighbour ordering
 pub type BestNeighbourPoint<A, T, const K: usize> = NeighbourPoint<BestNeighbour<A, T>, A, T, K>;
 
-impl<A: PartialOrd, T: Content, const K: usize> BestNeighbourPoint<A, T, K> {
+impl<A: Copy + PartialOrd, T: Content, const K: usize> BestNeighbourPoint<A, T, K> {
     /// Create a new BestNeighbourPoint
     pub fn new_best(distance: A, item: T, point: [A; K]) -> Self {
         Self::new(BestNeighbour::new(distance, item), point)
@@ -250,7 +267,7 @@ impl<A: PartialOrd, T: Content, const K: usize> BestNeighbourPoint<A, T, K> {
 impl<N, A, T, const K: usize> Ord for NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T> + Ord,
-    A: PartialOrd,
+    A: Copy + PartialOrd,
     T: Content,
 {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -261,7 +278,7 @@ where
 impl<N, A, T, const K: usize> PartialOrd for NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T> + PartialOrd,
-    A: PartialOrd,
+    A: Copy + PartialOrd,
     T: Content,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -273,7 +290,7 @@ where
 impl<N, A, T, const K: usize> Eq for NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T> + Eq,
-    A: PartialOrd + PartialEq,
+    A: Copy + PartialOrd + PartialEq,
     T: Content + PartialEq,
 {}
 
@@ -281,7 +298,7 @@ where
 impl<N, A, T, const K: usize> PartialEq for NeighbourPoint<N, A, T, K>
 where
     N: NeighbourEntry<A, T> + PartialEq,
-    A: PartialOrd + PartialEq,
+    A: Copy + PartialOrd + PartialEq,
     T: Content + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {

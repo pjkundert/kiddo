@@ -9,7 +9,6 @@ use crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk;
 use crate::immutable::float::kdtree::ImmutableKdTree;
 use crate::traits::Content;
 use crate::traits::DistanceMetric;
-use crate::float::result_collection::ResultCollection;
 
 use crate::generate_immutable_best_n_within;
 

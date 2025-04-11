@@ -15,6 +15,9 @@ where
     A: Axis,
 {
     fn new_with_capacity(capacity: usize) -> Self;
+    fn result_len(&self) -> usize;
+    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>>;
+    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>>;
     fn add(&mut self, entry: NeighbourPoint<N, A, T, K>);
     fn max_dist(&self) -> A;
     fn into_vec(self) -> Vec<N>;
@@ -22,6 +25,7 @@ where
     fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>>;
     fn into_sorted_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>>;
 }
+
 
 impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for BinaryHeap<NeighbourPoint<N, A, T, K>>
 where
@@ -34,6 +38,18 @@ where
         BinaryHeap::with_capacity(capacity)
     }
     
+    fn result_len(&self) -> usize {
+        self.len()
+    }
+
+    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+        self.pop()
+    }
+
+    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+        self.peek()
+    }
+
     fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {
         let k = self.capacity();
         if self.len() < k {
@@ -71,6 +87,7 @@ where
     }
 }
 
+
 impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for Vec<NeighbourPoint<N, A, T, K>>
 where
     N: NeighbourEntry<A, T>,
@@ -80,6 +97,19 @@ where
 {
     fn new_with_capacity(capacity: usize) -> Self {
         Vec::with_capacity(capacity)
+    }
+    
+    fn result_len(&self) -> usize {
+        self.len()
+    }
+
+    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+        self.pop()
+    }
+
+    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+        // Vec doesn't have a peek method, so use last
+        self.last()
     }
     
     fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {
@@ -110,6 +140,8 @@ where
     }
 }
 
+
+
 impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for SortedVec<NeighbourPoint<N, A, T, K>>
 where
     N: NeighbourEntry<A, T>,
@@ -121,6 +153,19 @@ where
         SortedVec::with_capacity(capacity)
     }
     
+    fn result_len(&self) -> usize {
+        self.len()
+    }
+
+    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+        self.pop()
+    }
+    
+    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+        // Use SortedVec's inherent last method as peek
+        self.last()
+    }
+
     fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {
         let len = self.len();
         if len < self.capacity() {
@@ -165,6 +210,28 @@ where
     fn new_with_capacity(capacity: usize) -> Self {
         assert_eq!(capacity, 1);
         None
+    }
+
+    fn result_len(&self) -> usize {
+        match self {
+            Some(_) => 1_usize,
+            None => 0_usize,
+        }
+    }
+
+    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+        match self {
+            Some(entry) => {
+                let result = entry.clone();
+                *self = None;
+                Some(result)
+            },
+            None => None,
+        }
+    }
+
+    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+        self.as_ref()
     }
     
     fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {

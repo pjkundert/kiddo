@@ -18,7 +18,6 @@ macro_rules! generate_nearest_one {
                 where
                     D: DistanceMetric<A, K>,
             {
-                let mut nearest_entry = [A::zero(); K];
                 let mut off = [A::zero(); K];
 
                 unsafe {
