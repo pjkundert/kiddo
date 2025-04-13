@@ -1,38 +1,35 @@
 //! Consistent interface for storing 0, 1 or more neighbor entry points.
 //!
-//! Capable of storing and ordering {Best,Nearest}NeighbourPoint implementations
+//! Capable of storing and ordering {Best,Nearest}Neighbour implementations
 
 use crate::float::kdtree::Axis;
-use crate::neighbour::{NeighbourEntry, NeighbourPoint};
+use crate::neighbour::NeighbourEntry;
 use crate::traits::Content;
 use sorted_vec::SortedVec;
 use std::collections::BinaryHeap;
 
 pub trait ResultCollection<N, A, T, const K: usize>
 where
-    N: NeighbourEntry<A, T>,
+    N: NeighbourEntry<A, T, K>,
     T: Content,
     A: Axis,
 {
     fn new_with_capacity(capacity: usize) -> Self;
     fn result_len(&self) -> usize;
-    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>>;
-    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>>;
-    fn add(&mut self, entry: NeighbourPoint<N, A, T, K>);
+    fn result_pop(&mut self) -> Option<N>;
+    fn result_peek(&self) -> Option<&N>;
+    fn add(&mut self, entry: N);
     fn max_dist(&self) -> A;
     fn into_vec(self) -> Vec<N>;
     fn into_sorted_vec(self) -> Vec<N>;
-    fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>>;
-    fn into_sorted_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>>;
 }
 
 
-impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for BinaryHeap<NeighbourPoint<N, A, T, K>>
+impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for BinaryHeap<N>
 where
-    N: NeighbourEntry<A, T>,
+    N: NeighbourEntry<A, T, K> + Ord,
     T: Content,
     A: Axis,
-    NeighbourPoint<N, A, T, K>: Ord,
 {
     fn new_with_capacity(capacity: usize) -> Self {
         BinaryHeap::with_capacity(capacity)
@@ -42,15 +39,15 @@ where
         self.len()
     }
 
-    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+    fn result_pop(&mut self) -> Option<N> {
         self.pop()
     }
 
-    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+    fn result_peek(&self) -> Option<&N> {
         self.peek()
     }
 
-    fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {
+    fn add(&mut self, entry: N) {
         let k = self.capacity();
         if self.len() < k {
             self.push(entry);
@@ -66,34 +63,25 @@ where
         if self.len() < self.capacity() {
             A::infinity()
         } else {
-            self.peek().map_or(A::infinity(), |n| n.neighbour.distance())
+            self.peek().map_or(A::infinity(), |n| n.distance())
         }
     }
     
     fn into_vec(self) -> Vec<N> {
-        BinaryHeap::into_vec(self).into_iter().map(|np| np.neighbour).collect()
-    }
-    
-    fn into_sorted_vec(self) -> Vec<N> {
-        BinaryHeap::into_sorted_vec(self).into_iter().map(|np| np.neighbour).collect()
-    }
-    
-    fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
         BinaryHeap::into_vec(self)
     }
     
-    fn into_sorted_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
+    fn into_sorted_vec(self) -> Vec<N> {
         BinaryHeap::into_sorted_vec(self)
     }
 }
 
 
-impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for Vec<NeighbourPoint<N, A, T, K>>
+impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for Vec<N>
 where
-    N: NeighbourEntry<A, T>,
+    N: NeighbourEntry<A, T, K> + Ord,
     T: Content,
     A: Axis,
-    NeighbourPoint<N, A, T, K>: Ord,
 {
     fn new_with_capacity(capacity: usize) -> Self {
         Vec::with_capacity(capacity)
@@ -103,16 +91,16 @@ where
         self.len()
     }
 
-    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+    fn result_pop(&mut self) -> Option<N> {
         self.pop()
     }
 
-    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+    fn result_peek(&self) -> Option<&N> {
         // Vec doesn't have a peek method, so use last
         self.last()
     }
     
-    fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {
+    fn add(&mut self, entry: N) {
         self.push(entry)
     }
     
@@ -121,33 +109,23 @@ where
     }
     
     fn into_vec(self) -> Vec<N> {
-        self.into_iter().map(|np| np.neighbour).collect()
+        self
     }
     
     fn into_sorted_vec(self) -> Vec<N> {
         let mut sorted = self;
         sorted.sort();
-        sorted.into_iter().map(|np| np.neighbour).collect()
-    }
-    
-    fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
-        self
-    }
-    
-    fn into_sorted_vec_points(mut self) -> Vec<NeighbourPoint<N, A, T, K>> {
-        self.sort();
-        self
+        sorted
     }
 }
 
 
 
-impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for SortedVec<NeighbourPoint<N, A, T, K>>
+impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for SortedVec<N>
 where
-    N: NeighbourEntry<A, T>,
+    N: NeighbourEntry<A, T, K> + Ord,
     T: Content,
     A: Axis,
-    NeighbourPoint<N, A, T, K>: Ord,
 {
     fn new_with_capacity(capacity: usize) -> Self {
         SortedVec::with_capacity(capacity)
@@ -157,16 +135,16 @@ where
         self.len()
     }
 
-    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+    fn result_pop(&mut self) -> Option<N> {
         self.pop()
     }
     
-    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+    fn result_peek(&self) -> Option<&N> {
         // Use SortedVec's inherent last method as peek
         self.last()
     }
 
-    fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {
+    fn add(&mut self, entry: N) {
         let len = self.len();
         if len < self.capacity() {
             self.insert(entry);
@@ -180,30 +158,22 @@ where
         if self.len() < self.capacity() {
             A::infinity()
         } else {
-            self.last().map_or(A::infinity(), |n| n.neighbour.distance())
+            self.last().map_or(A::infinity(), |n| n.distance())
         }
     }
     
     fn into_vec(self) -> Vec<N> {
-        self.into_vec().into_iter().map(|np| np.neighbour).collect()
-    }
-    
-    fn into_sorted_vec(self) -> Vec<N> {
-        self.into_vec().into_iter().map(|np| np.neighbour).collect()
-    }
-    
-    fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
         self.into_vec()
     }
     
-    fn into_sorted_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
+    fn into_sorted_vec(self) -> Vec<N> {
         self.into_vec()
     }
 }
 
-impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for Option<NeighbourPoint<N, A, T, K>>
+impl<N, A, T, const K: usize> ResultCollection<N, A, T, K> for Option<N>
 where
-    N: NeighbourEntry<A, T>,
+    N: NeighbourEntry<A, T, K>,
     T: Content,
     A: Axis,
 {
@@ -219,7 +189,7 @@ where
         }
     }
 
-    fn result_pop(&mut self) -> Option<NeighbourPoint<N, A, T, K>> {
+    fn result_pop(&mut self) -> Option<N> {
         match self {
             Some(entry) => {
                 let result = entry.clone();
@@ -230,46 +200,29 @@ where
         }
     }
 
-    fn result_peek(&self) -> Option<&NeighbourPoint<N, A, T, K>> {
+    fn result_peek(&self) -> Option<&N> {
         self.as_ref()
     }
     
-    fn add(&mut self, entry: NeighbourPoint<N, A, T, K>) {
+    fn add(&mut self, entry: N) {
         *self = Some(entry);
     }
     
     fn max_dist(&self) -> A {
         match self {
-            Some(np) => np.neighbour.distance(),
+            Some(n) => n.distance(),
             None => A::infinity(),
         }
     }
     
     fn into_vec(self) -> Vec<N> {
         match self {
-            Some(np) => vec![np.neighbour],
+            Some(n) => vec![n],
             None => vec![],
         }
     }
     
     fn into_sorted_vec(self) -> Vec<N> {
-        match self {
-            Some(np) => vec![np.neighbour],
-            None => vec![],
-        }
-    }
-    
-    fn into_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
-        match self {
-            Some(np) => vec![np],
-            None => vec![],
-        }
-    }
-    
-    fn into_sorted_vec_points(self) -> Vec<NeighbourPoint<N, A, T, K>> {
-        match self {
-            Some(np) => vec![np],
-            None => vec![],
-        }
+        self.into_vec()
     }
 }

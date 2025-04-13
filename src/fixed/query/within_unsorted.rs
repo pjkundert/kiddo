@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::ops::Rem;
 
 use crate::fixed::kdtree::{Axis, KdTree};
-use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
+use crate::neighbour::NearestNeighbour;
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 

@@ -1,6 +1,6 @@
 use crate::float::kdtree::Axis;
 use crate::immutable::float::kdtree::ImmutableKdTree;
-use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
+use crate::neighbour::NearestNeighbour;
 use crate::traits::Content;
 use crate::traits::DistanceMetric;
 use az::Cast;
@@ -71,7 +71,7 @@ impl<
 mod tests {
     use crate::float::distance::Manhattan;
     use crate::immutable::float::kdtree::ImmutableKdTree;
-    use crate::nearest_neighbour::NearestNeighbour;
+    use crate::neighbour::NearestNeighbour;
 
     type AX = f32;
 

@@ -11,26 +11,46 @@ macro_rules! generate_immutable_nearest_n_within {
 		dist: A,
 		max_items: NonZero<usize>,
 		sorted: bool
-	    ) -> Vec<NearestNeighbour<A, T>>
+	    ) -> Vec<NearestNeighbour<A, T, K>>
+            where
+                D: DistanceMetric<A, K>,
+            {
+		let unit = [A::one(); K];
+		self.nearest_n_within_scaled::<D>(query, &unit, dist, max_items, sorted)
+	    }
+
+            pub fn nearest_n_within_scaled<D>(
+		&self,
+		query: &[A; K],
+		scale: &[A; K],
+		dist: A,
+		max_items: NonZero<usize>,
+		sorted: bool
+	    ) -> Vec<NearestNeighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
                 let max_items = max_items.into();
-		let unit = [A::one(); K];
-                let result: ResultCollection<NearestNeighbour<A, T>> = if sorted && max_items < usize::MAX {
+                if sorted || max_items < usize::MAX {
+		    // Either sorted, or limited number of results requested; must use an ordered container
                     if max_items <= MAX_VEC_RESULT_SIZE {
-                        self.nearest_n_within_stub::<D, SortedVec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items)
+			// Small number of results; simple ordered container
+                        let result = self.nearest_n_within_stub::<D, SortedVec<NearestNeighbour<A, T, K>>>(query, scale, dist, max_items);
+			if sorted {
+			    result.into_sorted_vec()
+			} else {
+			    result.into_vec()
+			}
                     } else {
-                        self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, max_items)
+                        let result = self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbour<A, T, K>>>(query, scale, dist, max_items);
+			if sorted {
+			    result.into_sorted_vec()
+			} else {
+			    result.into_vec()
+			}
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbourPoint<A, T, K>>>(query, &unit, dist, 0)
-                };
-
-                if sorted {
-                    result.into_sorted_vec()
-                } else {
-                    result.into_vec()
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbour<A, T, K>>>(query, scale, dist, 0).into_vec()
                 }
             }
 
@@ -42,7 +62,7 @@ macro_rules! generate_immutable_nearest_n_within {
 		res_capacity: usize,
             ) -> R
 	    where
-		R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
+		R: ResultCollection<NearestNeighbour<A, T, K>, A, T, K>,
 	    {
                 let mut matching_items = R::new_with_capacity(res_capacity);
                 let mut off = [A::zero(); K];
@@ -95,7 +115,7 @@ macro_rules! generate_immutable_nearest_n_within {
                 mut leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
-                R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
+                R: ResultCollection<NearestNeighbour<A, T, K>, A, T, K>,
             {
                 if level > self.max_stem_level as usize || self.stems.is_empty() {
                     self.search_leaf_for_nearest_n_within::<D, R>(query, scale, radius, matching_items, leaf_idx as usize);
@@ -243,11 +263,11 @@ macro_rules! generate_immutable_nearest_n_within {
                 leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
-                R: ResultCollection<NearestNeighbour<A, T>, A, T, K>,
+                R: ResultCollection<NearestNeighbour<A, T, K>, A, T, K>,
             {
                 let leaf_slice = self.get_leaf_slice(leaf_idx);
 
-                leaf_slice.nearest_n_within::<D, NearestNeighbour<A, T>, R>(
+                leaf_slice.nearest_n_within::<D, R>(
                     query,
                     scale,
                     radius,

@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::collections::BinaryHeap;
 use std::ops::Rem;
 
-use crate::best_neighbour::{BestNeighbour, BestNeighbourPoint};
+use crate::neighbour::BestNeighbour;
 use crate::fixed::kdtree::{Axis, KdTree, LeafNode};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
@@ -50,7 +50,7 @@ performing a comparison of the elements using < (ie, [`std::cmp::Ordering::is_lt
 
 #[cfg(test)]
 mod tests {
-    use crate::best_neighbour::BestNeighbour;
+    use crate::neighbour::BestNeighbour;
     use crate::fixed::distance::Manhattan;
     use crate::fixed::kdtree::{Axis, KdTree};
     use crate::test_utils::{rand_data_fixed_u16_entry, rand_data_fixed_u16_point};

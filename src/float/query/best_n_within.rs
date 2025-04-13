@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::collections::BinaryHeap;
 use std::ops::Rem;
 
-use crate::best_neighbour::{BestNeighbour, BestNeighbourPoint};
+use crate::neighbour::BestNeighbour;
 use crate::float::kdtree::{Axis, KdTree, LeafNode};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
@@ -79,7 +79,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::best_neighbour::BestNeighbour;
+    use crate::neighbour::BestNeighbour;
     use crate::float::distance::SquaredEuclidean;
     use crate::float::kdtree::KdTree;
     use crate::traits::DistanceMetric;

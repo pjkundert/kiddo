@@ -5,16 +5,16 @@ macro_rules! generate_within_unsorted {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn within_unsorted<D>(&self, query: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T>>
+            pub fn within_unsorted<D>(&self, query: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
                 let unit = [A::one(); K];
-		self.within_unsorted_point::<D>(query, &unit, dist).iter().map(|nnp| nnp.neighbour).collect()
+		self.within_unsorted_scaled::<D>(query, &unit, dist)
             }
 
             #[inline]
-            pub fn within_unsorted_point<D>(&self, query: &[A; K], scale: &[A; K], dist: A) -> Vec<NearestNeighbourPoint<A, T, K>>
+            pub fn within_unsorted_scaled<D>(&self, query: &[A; K], scale: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
@@ -45,7 +45,7 @@ macro_rules! generate_within_unsorted {
                 radius: A,
                 curr_node_idx: IDX,
                 split_dim: usize,
-                matching_items: &mut Vec<NearestNeighbourPoint<A, T, K>>,
+                matching_items: &mut Vec<NearestNeighbour<A, T, K>>,
                 off: &mut [A; K],
                 rd: A,
             ) where
@@ -107,7 +107,7 @@ macro_rules! generate_within_unsorted {
                             let distance = D::dist(query, entry, scale);
 
                             if distance < radius {
-                                matching_items.push(NearestNeighbourPoint::new_nearest(
+                                matching_items.push(NearestNeighbour::new(
                                     distance,
                                     *leaf_node.content_items.get_unchecked(idx.az::<usize>()),
                                     entry.to_owned()

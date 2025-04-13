@@ -3,7 +3,7 @@ use std::collections::BinaryHeap;
 use std::num::NonZero;
 use std::ops::Rem;
 
-use crate::best_neighbour::{BestNeighbour, BestNeighbourPoint};
+use crate::neighbour::BestNeighbour;
 use crate::float::kdtree::Axis;
 use crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk;
 use crate::immutable::float::kdtree::ImmutableKdTree;
@@ -81,7 +81,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::best_neighbour::BestNeighbour;
+    use crate::neighbour::BestNeighbour;
     use crate::float::distance::SquaredEuclidean;
     use crate::immutable::float::kdtree::ImmutableKdTree;
     use crate::traits::DistanceMetric;

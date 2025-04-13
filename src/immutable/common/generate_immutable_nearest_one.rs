@@ -5,21 +5,21 @@ macro_rules! generate_immutable_nearest_one {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn nearest_one<D>(&self, query: &[A; K]) -> NearestNeighbour<A, T>
+            pub fn nearest_one<D>(&self, query: &[A; K]) -> NearestNeighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
 		let unit = [A::one(); K];
-                self.nearest_one_point::<D>(query, &unit).neighbour
+                self.nearest_one_scaled::<D>(query, &unit)
             }
 
             #[inline]
-            pub fn nearest_one_point<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbourPoint<A, T, K>
+            pub fn nearest_one_scaled<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
                 let mut off = [A::zero(); K];
-                let mut mut_nearest = NearestNeighbourPoint::new_nearest(
+                let mut mut_nearest = NearestNeighbour::new(
                     A::max_value(),
                     T::default(),
 		    [A::zero(); K],
@@ -78,7 +78,7 @@ macro_rules! generate_immutable_nearest_one {
                 mut level: i32,
                 mut minor_level: u32,
                 mut leaf_idx: u32,
-            ) -> NearestNeighbourPoint<A, T, K>
+            ) -> NearestNeighbour<A, T, K>
             where
                 D: DistanceMetric<A, K>,
             {
@@ -153,7 +153,7 @@ macro_rules! generate_immutable_nearest_one {
                 scale: &[A; K],
                 stem_idx: usize,
                 split_dim: u64,
-                nearest: &mut NearestNeighbourPoint<A, T, K>,
+                nearest: &mut NearestNeighbour<A, T, K>,
                 off: &mut [A; K],
                 rd: A,
             )
@@ -197,7 +197,7 @@ macro_rules! generate_immutable_nearest_one {
 
                 rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim as usize]));
 
-                if rd <= nearest.neighbour.distance {
+                if rd <= nearest.0.distance {
                     off[split_dim as usize] = new_off;
                     self.nearest_one_recurse::<D>(
                         query,
@@ -217,7 +217,7 @@ macro_rules! generate_immutable_nearest_one {
                 &self,
                 query: &[A; K],
                 scale: &[A; K],
-                nearest: &mut NearestNeighbourPoint<A, T, K>,
+                nearest: &mut NearestNeighbour<A, T, K>,
                 leaf_idx: usize,
             ) where
                 D: DistanceMetric<A, K>,
@@ -227,9 +227,9 @@ macro_rules! generate_immutable_nearest_one {
                 leaf_slice.nearest_one::<D>(
                     query,
 		    scale,
-                    &mut nearest.neighbour.0.distance,
-                    &mut nearest.neighbour.0.item,
-		    &mut nearest.point,
+                    &mut nearest.0.distance,
+                    &mut nearest.0.item,
+		    &mut nearest.0.point,
                 );
             }
         }

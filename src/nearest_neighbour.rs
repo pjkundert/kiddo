@@ -1,10 +1,8 @@
 //! A result item returned by a query
-//! Re-exports NearestNeighbour and NearestNeighbourPoint from neighbour.rs
+//! Re-exports NearestNeighbour from neighbour.rs for backward compatibility
 
-// Re-export the types from neighbour.rs
-pub use crate::neighbour::{NearestNeighbour, NearestNeighbourPoint};
+pub use crate::neighbour::NearestNeighbour;
 pub use crate::traits::Content;
-
 
 
 

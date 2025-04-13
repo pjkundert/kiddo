@@ -4,7 +4,7 @@ use crate::float::kdtree::Axis;
 use crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk;
 use crate::generate_immutable_nearest_one;
 use crate::immutable::float::kdtree::ImmutableKdTree;
-use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
+use crate::neighbour::NearestNeighbour;
 use crate::traits::Content;
 use crate::traits::DistanceMetric;
 
@@ -76,7 +76,7 @@ mod tests {
     use crate::float::distance::SquaredEuclidean;
     use crate::float::kdtree::Axis;
     use crate::immutable::float::kdtree::ImmutableKdTree;
-    use crate::nearest_neighbour::NearestNeighbour;
+    use crate::neighbour::NearestNeighbour;
     use crate::traits::DistanceMetric;
     use rand::{Rng, SeedableRng};
 

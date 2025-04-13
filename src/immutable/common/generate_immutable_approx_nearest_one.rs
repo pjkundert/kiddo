@@ -5,7 +5,7 @@ macro_rules! generate_immutable_approx_nearest_one {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn approx_nearest_one<D>(&self, query: &[A; K]) -> NearestNeighbour<A, T>
+            pub fn approx_nearest_one<D>(&self, query: &[A; K]) -> NearestNeighbour<A, T, K>
             where
                 A: $crate::float_leaf_slice::leaf_slice::LeafSliceFloatChunk<T, K>,
                 D: DistanceMetric<A, K>,
@@ -61,7 +61,7 @@ macro_rules! generate_immutable_approx_nearest_one {
 		    &mut best_point,
                 );
 
-                NearestNeighbourPoint::new_nearest( best_dist, best_item, best_point ).neighbour
+                NearestNeighbour::new( best_dist, best_item, best_point )
             }
         }
     };

@@ -1,8 +1,8 @@
 //! A result item returned by a query
-//! Re-exports BestNeighbour and BestNeighbourPoint from neighbour.rs
+//! Re-exports BestNeighbour from neighbour.rs for backward compatibility
 
-// Re-export the types from neighbour.rs
-pub use crate::neighbour::{BestNeighbour, BestNeighbourPoint};
+
+pub use crate::neighbour::BestNeighbour;
 pub use crate::traits::Content;
 
 
@@ -14,16 +14,17 @@ mod tests {
 
     #[test]
     fn test_smoke() {
-	let bn = BestNeighbour(Neighbour{ distance: 1_f64, item: 2_uszie });
-        assert_eq!(bn.0.distance, 1.0f32);
-        assert_eq!(nn.0.item, 1usize);
-
+        let point = [1.0f64, 2.0, 3.0];
+        let bn: BestNeighbour<f64, usize, 3> = BestNeighbour::new(1.0, 2, point);
+        assert_eq!(bn.distance(), 1.0);
+        assert_eq!(bn.item(), 2);
     }
 
     #[test]
     fn test_from_tuple() {
-        let b = BestNeighbour::new(1.0f32, 1usize);
-        let nn: (f32, usize) = b.0.into_tuple();
+        let point = [1.0f32, 2.0, 3.0];
+        let b: BestNeighbour<f32, usize, 3> = BestNeighbour::new(1.0f32, 1usize, point);
+        let nn: (f32, usize) = b.into_tuple();
 
         assert_eq!(nn.0, 1.0f32);
         assert_eq!(nn.1, 1usize);
@@ -31,8 +32,10 @@ mod tests {
 
     #[test]
     fn test_best_neighbour_comparison() {
-        let a = BestNeighbour::new(1.0, 10);
-        let b = BestNeighbour::new(2.0, 5);
+        let point_a = [1.0f64, 2.0, 3.0];
+        let point_b = [4.0f64, 5.0, 6.0];
+        let a: BestNeighbour<f64, usize, 3> = BestNeighbour::new(1.0, 10, point_a);
+        let b: BestNeighbour<f64, usize, 3> = BestNeighbour::new(2.0, 5, point_b);
         
         // BestNeighbour compares by item (ascending)
         assert_eq!(a.partial_cmp(&b), Some(Ordering::Greater));

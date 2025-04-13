@@ -132,8 +132,7 @@ pub type KdTree<A, const K: usize> = float::kdtree::KdTree<A, u64, K, 32, u32>;
 pub type ImmutableKdTree<A, const K: usize> =
     immutable::float::kdtree::ImmutableKdTree<A, u64, K, 32>;
 
-pub use best_neighbour::{BestNeighbour, BestNeighbourPoint};
-pub use nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
+pub use neighbour::{BestNeighbour, NearestNeighbour};
 pub use float::distance::Manhattan;
 pub use float::distance::SquaredEuclidean;
 

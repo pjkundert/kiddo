@@ -5,16 +5,16 @@ macro_rules! generate_nearest_one {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn nearest_one<D>(&self, query: &[A; K]) -> NearestNeighbour<A, T>
+            pub fn nearest_one<D>(&self, query: &[A; K]) -> NearestNeighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
                 let unit = [A::one(); K];
-                self.nearest_one_point::<D>(query, &unit).neighbour
+                self.nearest_one_point::<D>(query, &unit)
             }
 
             #[inline]
-            pub fn nearest_one_point<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbourPoint<A, T, K>
+            pub fn nearest_one_point<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
@@ -26,7 +26,7 @@ macro_rules! generate_nearest_one {
                         scale,
                         self.root_index,
                         0,
-                        NearestNeighbourPoint::new_nearest(
+                        NearestNeighbour::new(
                             A::max_value(),
                             T::default(),
                             [A::zero(); K]
@@ -44,10 +44,10 @@ macro_rules! generate_nearest_one {
                 scale: &[A; K],
                 curr_node_idx: IDX,
                 split_dim: usize,
-                mut nearest: NearestNeighbourPoint<A, T, K>,
+                mut nearest: NearestNeighbour<A, T, K>,
                 off: &mut [A; K],
                 rd: A,
-            ) -> NearestNeighbourPoint<A, T, K>
+            ) -> NearestNeighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
@@ -111,12 +111,13 @@ macro_rules! generate_nearest_one {
 		    // trees that are *more* than 3 layers deep, nor if old_off is not 0 (we could
 		    // maintain this as a shortcut for a full D::dist for old_off == 0)
                     rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
-		    let mut new = off.clone();
-		    new[split_dim] = new_off;
-		    println!("rd w/ off[{}] == {:?} vs {:?}: {:?}, vs. dist: {:?}",
-			     split_dim, old_off, new_off, rd, D::dist(off, &new, scale));
+                let mut new = off.clone();
+                new[split_dim] = new_off;
+                // Commented out debug print to avoid noise
+                // println!("rd w/ off[{}] == {:?} vs {:?}: {:?}, vs. dist: {:?}",
+                //     split_dim, old_off, new_off, rd, D::dist(off, &new, scale));
 
-                    if rd <= nearest.neighbour.distance {
+                    if rd <= nearest.0.distance {
                         off[split_dim] = new_off;
                         let result = self.nearest_one_recurse::<D>(
                             query,
@@ -153,7 +154,7 @@ macro_rules! generate_nearest_one {
             fn search_content_for_nearest<D>(
                 query: &[A; K],
                 scale: &[A; K],
-                nearest: &mut NearestNeighbourPoint<A, T, K>,
+                nearest: &mut NearestNeighbour<A, T, K>,
                 leaf_node: &$leafnode<A, T, K, B, IDX>,
             ) where
                 D: DistanceMetric<A, K>,
@@ -165,10 +166,11 @@ macro_rules! generate_nearest_one {
                     .take(leaf_node.size.az::<usize>())
                     .for_each(|(idx, entry)| {
                         let dist = D::dist(query, entry, scale);
-                        if dist < nearest.neighbour.distance {
-                            nearest.neighbour.distance = dist;
-                            nearest.neighbour.item = unsafe { *leaf_node.content_items.get_unchecked(idx) };
-                            nearest.point.copy_from_slice( entry );
+                        if dist < nearest.0.distance {
+                            // Create a new NearestNeighbour with the better distance
+                            let point = entry.clone();
+                            let item = unsafe { *leaf_node.content_items.get_unchecked(idx) };
+                            *nearest = NearestNeighbour::new(dist, item, point);
                         }
                     });
             }

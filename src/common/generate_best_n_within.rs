@@ -10,29 +10,27 @@ macro_rules! generate_best_n_within {
         query: &[A; K],
         dist: A,
         max_qty: usize,
-    ) -> impl Iterator<Item = BestNeighbour<A, T>>
+    ) -> impl Iterator<Item = BestNeighbour<A, T, K>>
     where
         D: DistanceMetric<A, K>,
     {
 	let unit = [A::one(); K];
-	self.best_n_within_points::<D>(query, &unit, dist, max_qty)
-	    .into_iter()
-	    .map(|bnp| bnp.neighbour)
+	self.best_n_within_scaled::<D>(query, &unit, dist, max_qty)
     }
 
     #[inline]
-    pub fn best_n_within_points<D>(
+    pub fn best_n_within_scaled<D>(
         &self,
         query: &[A; K],
 	scale: &[A; K],
         dist: A,
         max_qty: usize,
-    ) -> impl Iterator<Item = BestNeighbourPoint<A, T, K>>
+    ) -> impl Iterator<Item = BestNeighbour<A, T, K>>
     where
         D: DistanceMetric<A, K>,
     {
         let mut off = [A::zero(); K];
-        let mut best_items: BinaryHeap<BestNeighbourPoint<A, T, K>> = BinaryHeap::new();
+        let mut best_items: BinaryHeap<BestNeighbour<A, T, K>> = BinaryHeap::new();
 
         unsafe {
             self.best_n_within_recurse::<D>(
@@ -60,7 +58,7 @@ macro_rules! generate_best_n_within {
         max_qty: usize,
         curr_node_idx: IDX,
         split_dim: usize,
-        best_items: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
+        best_items: &mut BinaryHeap<BestNeighbour<A, T, K>>,
         off: &mut [A; K],
         rd: A,
     ) where
@@ -125,7 +123,7 @@ macro_rules! generate_best_n_within {
         scale: &[A; K],
         radius: A,
         max_qty: usize,
-        best_items: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
+        best_items: &mut BinaryHeap<BestNeighbour<A, T, K>>,
         leaf_node: &$leafnode<A, T, K, B, IDX>,
     ) where
         D: DistanceMetric<A, K>,
@@ -145,20 +143,20 @@ macro_rules! generate_best_n_within {
     #[inline]
     unsafe fn get_item_and_add_if_good(
         max_qty: usize,
-        best_items: &mut BinaryHeap<BestNeighbourPoint<A, T, K>>,
+        best_items: &mut BinaryHeap<BestNeighbour<A, T, K>>,
         leaf_node: &$leafnode<A, T, K, B, IDX>,
         idx: usize,
         distance: A,
 	entry: &[A; K]
     ) {
         let item = *leaf_node.content_items.get_unchecked(idx.az::<usize>());
+	let element = BestNeighbour::new(distance, item, entry.clone());
         if best_items.len() < max_qty {
-            best_items.push(BestNeighbourPoint::new_best(distance, item, entry.clone()))
+            best_items.push(element);
         } else {
             let mut top = best_items.peek_mut().unwrap();
-            if item < top.neighbour.item() {
-                *top = BestNeighbourPoint::new_best(distance, item, entry.clone());
-		top.point.copy_from_slice(entry);
+            if element < *top {
+                *top = element;
             }
         }
     }

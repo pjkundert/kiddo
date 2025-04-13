@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::ops::Rem;
 
 use crate::fixed::kdtree::{Axis, KdTree, LeafNode};
-use crate::nearest_neighbour::{NearestNeighbour, NearestNeighbourPoint};
+use crate::neighbour::{NearestNeighbour, NeighbourEntry};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 
@@ -56,7 +56,7 @@ The nearest_one_point version also returns the coordinates of the nearest point.
 mod tests {
     use crate::fixed::distance::Manhattan;
     use crate::fixed::kdtree::{Axis, KdTree};
-    use crate::nearest_neighbour::NearestNeighbour;
+    use crate::neighbour::NearestNeighbour;
     use crate::test_utils::{rand_data_fixed_u16_entry, rand_data_fixed_u16_point};
     use crate::traits::DistanceMetric;
     use fixed::types::extra::U14;

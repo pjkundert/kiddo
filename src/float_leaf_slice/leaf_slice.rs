@@ -3,7 +3,7 @@ use az::Cast;
 use std::slice::ChunksExact;
 
 use crate::traits::DistanceMetric;
-use crate::{float::kdtree::Axis, neighbour::{NearestNeighbourPoint, NeighbourEntry, NeighbourPoint}, traits::Content};
+use crate::{float::kdtree::Axis, neighbour::{NearestNeighbour, BestNeighbour, NeighbourEntry}, traits::Content};
 
 const CHUNK_SIZE: usize = 32;
 
@@ -14,43 +14,6 @@ pub(crate) struct LeafFixedSlice<'a, A: Axis, T: Content, const K: usize, const 
     pub content_points: [&'a [A; C]; K],
     pub content_items: &'a [T; C],
 }
-
-// impl<A, T, const K: usize, const C: usize> LeafFixedSlice<'_, A, T, K, C>
-// where
-//     A: Axis + LeafSliceFloatChunk<T, K>,
-//     T: Content,
-//     usize: Cast<T>,
-// {
-//     #[allow(dead_code)]
-//     #[inline]
-//     pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T)
-//     where
-//         D: DistanceMetric<A, K>,
-//     {
-//         // Calculate distances for all points in this chunk
-//         let mut acc = [A::zero(); C];
-        
-//         // For each dimension
-//         (0..K).step_by(1).for_each(|dim| {
-//             // For each point in the chunk
-//             (0..C).step_by(1).for_each(|idx| {
-//                 // Accumulate distance in this dimension
-//                 acc[idx] = D::accumulate(acc[idx], D::dist1(
-//                     self.content_points[dim][idx], query[dim], scale[dim]
-//                 ));
-//             });
-//         });
-        
-//         // Update the best distance and item if we found a better one
-//         // Iterate through the accumulated distances and check if any is better than the current best
-//         for i in 0..C {
-//             if acc[i] < *best_dist {
-//                 *best_dist = acc[i];
-//                 *best_item = self.content_items[i];
-//             }
-//         }
-//     }
-// }
 
 #[doc(hidden)]
 #[derive(Debug)]
@@ -114,7 +77,7 @@ where
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        N: NeighbourEntry<Self, T>,
+        N: NeighbourEntry<Self, T, K>,
         R: ResultCollection<N, Self, T, K>;
         
     /// Process points that don't fit into a full chunk or can't be chunked
@@ -122,7 +85,7 @@ where
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        N: NeighbourEntry<Self, T>,
+        N: NeighbourEntry<Self, T, K>,
         R: ResultCollection<N, Self, T, K>;
 }
 
@@ -167,10 +130,10 @@ where
         let chunks_iter = self.as_full_chunks::<CHUNK_SIZE>();
         let (remain_points, remain_items) = chunks_iter.remainder();
 
-        let mut nearest: Option<NearestNeighbourPoint<A, T, K>> = None;
-        let one = |distance: A, item: T, results: &mut Option<NearestNeighbourPoint<A, T, K>>| -> bool {
+        let mut nearest: Option<NearestNeighbour<A, T, K>> = None;
+        let one = |distance: A, item: T, results: &mut Option<NearestNeighbour<A, T, K>>| -> bool {
             match results {
-                Some(nnp) => distance < nnp.neighbour.distance(),
+                Some(n) => distance < n.distance(),
                 None => true,
             }
         };
@@ -181,22 +144,22 @@ where
         A::results_for_remainder::<D, _, _, _, CHUNK_SIZE>(remain_points, remain_items, query, scale, one, &mut nearest);
 
         match nearest {
+            //Some(nnp) => (*best_dist, *best_item, *best_point) = nnp,
             Some(nnp) => {
-                *best_dist = nnp.distance();
-                *best_item = nnp.item();
-                best_point.copy_from_slice(&nnp.point);
-            },
+		*best_dist = nnp.0.distance;
+		*best_item = nnp.0.item;
+		*best_point = nnp.0.point;
+	    },
             None => {},
         }
     }
 
     /// Find all neighbors within a specified radius
     #[inline]
-    pub(crate) fn nearest_n_within<D, N, R>(&self, query: &[A; K], scale: &[A; K], radius: A, results: &mut R)
+    pub(crate) fn nearest_n_within<D, R>(&self, query: &[A; K], scale: &[A; K], radius: A, results: &mut R)
     where
         D: DistanceMetric<A, K>,
-        N: NeighbourEntry<A, T> + Clone,
-        R: ResultCollection<N, A, T, K>,
+        R: ResultCollection<NearestNeighbour<A, T, K>, A, T, K>,
     {
         // Function to check if this distance is within radius
         let within = |distance: A, _item: T, _results: &mut R| -> bool {
@@ -207,9 +170,9 @@ where
         let (remain_points, remain_items) = chunks_iter.remainder();
 
         for (chunks_points, chunks_items) in chunks_iter {
-            A::results_for_chunk::<D, _, N, R, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, within, results);
+            A::results_for_chunk::<D, _, NearestNeighbour<A, T, K>, R, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, within, results);
         }
-        A::results_for_remainder::<D, _, N, R, CHUNK_SIZE>(remain_points, remain_items, query, scale, within, results);
+        A::results_for_remainder::<D, _, NearestNeighbour<A, T, K>, R, CHUNK_SIZE>(remain_points, remain_items, query, scale, within, results);
     }
 
     /// Find the best N neighbors within a radius, keeping only the best items up to max_qty
@@ -218,8 +181,7 @@ where
     pub(crate) fn best_n_within<D, N, R>(&self, query: &[A; K], scale: &[A; K], radius: A, max_qty: usize, results: &mut R)
     where
         D: DistanceMetric<A, K>,
-        N: NeighbourEntry<A, T>,
-        R: ResultCollection<N, A, T, K>,
+        R: ResultCollection<BestNeighbour<A, T, K>, A, T, K>,
     {
         // Function to check if this distance is within radius *and* better than worst entry (if full)
         let n_within = |distance: A, item: T, results: &mut R| -> bool {
@@ -228,7 +190,7 @@ where
                     return true;
                 }
                 if let Some(worst) = results.result_peek() {
-                    if item < worst.neighbour.item() {
+                    if item < worst.0.item {
                         // Remove the worst (greatest) item, if ours is better (less)
                         results.result_pop();
                         return true;
@@ -242,9 +204,9 @@ where
         let (remain_points, remain_items) = chunks_iter.remainder();
 
         for (chunks_points, chunks_items) in chunks_iter {
-            A::results_for_chunk::<D, _, N, R, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, n_within, results);
+            A::results_for_chunk::<D, _, BestNeighbour<A, T, K>, R, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, n_within, results);
         }
-        A::results_for_remainder::<D, _, N, R, CHUNK_SIZE>(remain_points, remain_items, query, scale, n_within, results);
+        A::results_for_remainder::<D, _, BestNeighbour<A, T, K>, R, CHUNK_SIZE>(remain_points, remain_items, query, scale, n_within, results);
     }
 }
 
@@ -264,7 +226,7 @@ where
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        N: NeighbourEntry<Self, T>,
+        N: NeighbourEntry<Self, T, K>,
         R: ResultCollection<N, Self, T, K>
     {
         // Calculate distances for all points in the chunk
@@ -282,12 +244,12 @@ where
         // Iterate each computed distance, evaluating each for inclusion in the results
         (0..C).step_by(1).for_each(|idx| {
             if include(acc[idx], items[idx], results) {
-                let neighbour = N::new(acc[idx], items[idx]);
                 let mut point = [Self::zero(); K];
                 for dim in 0..K {
                     point[dim] = points[dim][idx];
                 }
-                results.add(NeighbourPoint::<N, Self, T, K>::new(neighbour, point));
+                let neighbour = N::new(acc[idx], items[idx], point);
+                results.add(neighbour);
             }
         });
     }
@@ -300,7 +262,7 @@ where
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        N: NeighbourEntry<Self, T>,
+        N: NeighbourEntry<Self, T, K>,
         R: ResultCollection<N, Self, T, K>
     {
         // Handle variable-sized or remainder data
@@ -323,12 +285,12 @@ where
         // Iterate each computed distance, evaluating each for inclusion in the results
         (0..len).step_by(1).for_each(|idx| {
             if include(acc[idx], items[idx], results) {
-                let neighbour = N::new(acc[idx], items[idx]);
                 let mut point = [Self::zero(); K];
                 for dim in 0..K {
                     point[dim] = points[dim][idx];
                 }
-                results.add(NeighbourPoint::<N, Self, T, K>::new(neighbour, point));
+                let neighbour = N::new(acc[idx], items[idx], point);
+                results.add(neighbour);
             }
         });
     }

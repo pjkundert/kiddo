@@ -5,7 +5,7 @@ macro_rules! generate_immutable_within_unsorted {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn within_unsorted<D>(&self, query: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T>>
+            pub fn within_unsorted<D>(&self, query: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T, K>>
             where
                 A: LeafSliceFloatChunk<T, K>,
                 D: DistanceMetric<A, K>,
