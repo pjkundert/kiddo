@@ -12,6 +12,9 @@ where
     A: PartialOrd + Copy,
     T: Content,
 {
+    /// Construct a new neighbour entry
+    fn new(distance: A, item: T, point: [A; K]) -> Self;
+
     /// Get the distance value
     fn distance(&self) -> A;
     
@@ -51,20 +54,20 @@ where
     }
 }
 
-/// Implement NeighbourEntry for the base Neighbour struct
 impl<A, T, const K: usize> NeighbourEntry<A, T, K> for Neighbour<A, T, K>
 where
     A: PartialOrd + Copy,
     T: Content,
 {
+    fn new(distance: A, item: T, point: [A; K]) -> Self {
+        Self { distance, item, point }
+    }
     fn distance(&self) -> A {
         self.distance
     }
-    
     fn item(&self) -> T {
         self.item
     }
-    
     fn point(&self) -> &[A; K] {
         &self.point
     }
@@ -80,32 +83,33 @@ where
     A: PartialOrd + Copy,
     T: Content;
 
-impl<A, T, const K: usize> NearestNeighbour<A, T, K>
-where
-    A: PartialOrd + Copy,
-    T: Content,
-{
-    /// Create a new NearestNeighbour
-    pub fn new(distance: A, item: T, point: [A; K]) -> Self {
-        Self(Neighbour::new(distance, item, point))
-    }
-}
-
 impl<A, T, const K: usize> NeighbourEntry<A, T, K> for NearestNeighbour<A, T, K>
 where
     A: PartialOrd + Copy,
     T: Content,
 {
+    fn new(distance: A, item: T, point: [A; K]) -> Self {
+        Self(Neighbour::new(distance, item, point))
+    }
     fn distance(&self) -> A {
         self.0.distance
     }
-    
     fn item(&self) -> T {
         self.0.item
     }
-    
     fn point(&self) -> &[A; K] {
         &self.0.point
+    }
+}
+
+impl<A, T, const K: usize> NearestNeighbour<A, T, K>
+where
+    A: PartialOrd + Copy,
+    T: Content,
+{
+    /// Create a new NearestNeighbour - re-export from NeighbourEntry trait
+    pub fn new(distance: A, item: T, point: [A; K]) -> Self {
+        <Self as NeighbourEntry<A, T, K>>::new(distance, item, point)
     }
 }
 
@@ -165,32 +169,33 @@ where
     A: PartialOrd + Copy,
     T: Content;
 
-impl<A, T, const K: usize> BestNeighbour<A, T, K>
-where
-    A: PartialOrd + Copy,
-    T: Content,
-{
-    /// Create a new BestNeighbour
-    pub fn new(distance: A, item: T, point: [A; K]) -> Self {
-        Self(Neighbour::new(distance, item, point))
-    }
-}
-
 impl<A, T, const K: usize> NeighbourEntry<A, T, K> for BestNeighbour<A, T, K>
 where
     A: PartialOrd + Copy,
     T: Content,
 {
+    fn new(distance: A, item: T, point: [A; K]) -> Self {
+        Self(Neighbour::new(distance, item, point))
+    }
     fn distance(&self) -> A {
         self.0.distance
     }
-    
     fn item(&self) -> T {
         self.0.item
     }
-    
     fn point(&self) -> &[A; K] {
         &self.0.point
+    }
+}
+
+impl<A, T, const K: usize> BestNeighbour<A, T, K>
+where
+    A: PartialOrd + Copy,
+    T: Content,
+{
+    /// Create a new BestNeighbour - re-export from NeighbourEntry trait
+    pub fn new(distance: A, item: T, point: [A; K]) -> Self {
+        <Self as NeighbourEntry<A, T, K>>::new(distance, item, point)
     }
 }
 

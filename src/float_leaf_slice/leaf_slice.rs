@@ -3,7 +3,7 @@ use az::Cast;
 use std::slice::ChunksExact;
 
 use crate::traits::DistanceMetric;
-use crate::{float::kdtree::Axis, neighbour::{NearestNeighbour, BestNeighbour}, traits::Content};
+use crate::{float::kdtree::Axis, neighbour::{NearestNeighbour, BestNeighbour, NeighbourEntry}, traits::Content};
 
 const CHUNK_SIZE: usize = 32;
 
@@ -72,33 +72,21 @@ where
     T: Content,
     Self: Sized + Axis,
 {
-    /// Process a fixed-size chunk of points in an optimized way for NearestNeighbour
-    fn results_for_chunk_nearest<D, F, R, const C: usize>(points: [&[Self; C]; K], items: &[T; C], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R) 
+    /// Process a fixed-size chunk of points generically for any NeighbourEntry type
+    fn results_for_chunk<D, F, R, N, const C: usize>(points: [&[Self; C]; K], items: &[T; C], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R) 
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<NearestNeighbour<Self, T, K>, Self, T, K>;
-
-    /// Process a fixed-size chunk of points in an optimized way for BestNeighbour
-    fn results_for_chunk_best<D, F, R, const C: usize>(points: [&[Self; C]; K], items: &[T; C], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R) 
-    where
-        D: DistanceMetric<Self, K>,
-        F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<BestNeighbour<Self, T, K>, Self, T, K>;
+        N: NeighbourEntry<Self, T, K>,
+        R: ResultCollection<N, Self, T, K>;
         
-    /// Process points that don't fit into a full chunk or can't be chunked for NearestNeighbour
-    fn results_for_remainder_nearest<D, F, R, const C: usize>(points: [&[Self]; K], items: &[T], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
+    /// Process points that don't fit into a full chunk generically for any NeighbourEntry type
+    fn results_for_remainder<D, F, R, N, const C: usize>(points: [&[Self]; K], items: &[T], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<NearestNeighbour<Self, T, K>, Self, T, K>;
-
-    /// Process points that don't fit into a full chunk or can't be chunked for BestNeighbour
-    fn results_for_remainder_best<D, F, R, const C: usize>(points: [&[Self]; K], items: &[T], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
-    where
-        D: DistanceMetric<Self, K>,
-        F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<BestNeighbour<Self, T, K>, Self, T, K>;
+        N: NeighbourEntry<Self, T, K>,
+        R: ResultCollection<N, Self, T, K>;
 }
 
 impl<A, T, const K: usize> LeafSlice<'_, A, T, K>
@@ -151,9 +139,9 @@ where
         };
 
         for (chunks_points, chunks_items) in chunks_iter {
-            A::results_for_chunk_nearest::<D, _, _, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, is_nearer, &mut nearest);
+            A::results_for_chunk::<D, _, _, NearestNeighbour<A, T, K>, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, is_nearer, &mut nearest);
         }
-        A::results_for_remainder_nearest::<D, _, _, CHUNK_SIZE>(remain_points, remain_items, query, scale, is_nearer, &mut nearest);
+        A::results_for_remainder::<D, _, _, NearestNeighbour<A, T, K>, CHUNK_SIZE>(remain_points, remain_items, query, scale, is_nearer, &mut nearest);
 
         match nearest {
             //Some(nnp) => (*best_dist, *best_item, *best_point) = nnp,
@@ -182,9 +170,9 @@ where
         let (remain_points, remain_items) = chunks_iter.remainder();
 
         for (chunks_points, chunks_items) in chunks_iter {
-            A::results_for_chunk_nearest::<D, _, _, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, within, results);
+            A::results_for_chunk::<D, _, _, NearestNeighbour<A, T, K>, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, within, results);
         }
-        A::results_for_remainder_nearest::<D, _, _, CHUNK_SIZE>(remain_points, remain_items, query, scale, within, results);
+        A::results_for_remainder::<D, _, _, NearestNeighbour<A, T, K>, CHUNK_SIZE>(remain_points, remain_items, query, scale, within, results);
     }
 
     /// Find the best N neighbors within a radius, keeping only the best items up to max_qty
@@ -216,9 +204,9 @@ where
         let (remain_points, remain_items) = chunks_iter.remainder();
 
         for (chunks_points, chunks_items) in chunks_iter {
-            A::results_for_chunk_best::<D, _, _, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, n_within, results);
+            A::results_for_chunk::<D, _, _, BestNeighbour<A, T, K>, CHUNK_SIZE>(chunks_points, chunks_items, query, scale, n_within, results);
         }
-        A::results_for_remainder_best::<D, _, _, CHUNK_SIZE>(remain_points, remain_items, query, scale, n_within, results);
+        A::results_for_remainder::<D, _, _, BestNeighbour<A, T, K>, CHUNK_SIZE>(remain_points, remain_items, query, scale, n_within, results);
     }
 }
 
@@ -234,11 +222,12 @@ where
     /// This method is optimized for fixed-size chunks and processes data in a way that's friendly for
     /// modern CPU caches and potential SIMD optimizations.
     #[inline]
-    fn results_for_chunk_nearest<D, F, R, const C: usize>(points: [&[Self; C]; K], items: &[T; C], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
+    fn results_for_chunk<D, F, R, N, const C: usize>(points: [&[Self; C]; K], items: &[T; C], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<NearestNeighbour<Self, T, K>, Self, T, K>
+        N: NeighbourEntry<Self, T, K>,
+        R: ResultCollection<N, Self, T, K>
     {
         // Calculate distances for all points in the chunk
         let mut acc = [Self::zero(); C];
@@ -259,43 +248,7 @@ where
                 for dim in 0..K {
                     point[dim] = points[dim][idx];
                 }
-                let neighbour = NearestNeighbour::new(acc[idx], items[idx], point);
-                results.add(neighbour);
-            }
-        });
-    }
-
-    /// Scan a chunk in SIMD- and cache-friendly fashion for BestNeighbour results.
-    /// 
-    /// This method is optimized for fixed-size chunks and processes data in a way that's friendly for
-    /// modern CPU caches and potential SIMD optimizations.
-    #[inline]
-    fn results_for_chunk_best<D, F, R, const C: usize>(points: [&[Self; C]; K], items: &[T; C], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
-    where
-        D: DistanceMetric<Self, K>,
-        F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<BestNeighbour<Self, T, K>, Self, T, K>
-    {
-        // Calculate distances for all points in the chunk
-        let mut acc = [Self::zero(); C];
-        
-        // For each dimension
-        (0..K).step_by(1).for_each(|dim| {
-            // For each point in the chunk
-            (0..C).step_by(1).for_each(|idx| {
-                // Accumulate distance in this dimension
-                acc[idx] = D::accumulate(acc[idx], D::dist1(points[dim][idx], query[dim], scale[dim]));
-            });
-        });
-
-        // Iterate each computed distance, evaluating each for inclusion in the results
-        (0..C).step_by(1).for_each(|idx| {
-            if include(acc[idx], items[idx], results) {
-                let mut point = [Self::zero(); K];
-                for dim in 0..K {
-                    point[dim] = points[dim][idx];
-                }
-                let neighbour = BestNeighbour::new(acc[idx], items[idx], point);
+                let neighbour = N::new(acc[idx], items[idx], point);
                 results.add(neighbour);
             }
         });
@@ -305,11 +258,12 @@ where
     ///
     /// This handles either leftover data after chunking or data that can't be chunked at all.
     #[inline]
-    fn results_for_remainder_nearest<D, F, R, const C: usize>(points: [&[Self]; K], items: &[T], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
+    fn results_for_remainder<D, F, R, N, const C: usize>(points: [&[Self]; K], items: &[T], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
     where
         D: DistanceMetric<Self, K>,
         F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<NearestNeighbour<Self, T, K>, Self, T, K>
+        N: NeighbourEntry<Self, T, K>,
+        R: ResultCollection<N, Self, T, K>
     {
         // Handle variable-sized or remainder data
         if points[0].is_empty() {
@@ -335,47 +289,7 @@ where
                 for dim in 0..K {
                     point[dim] = points[dim][idx];
                 }
-                let neighbour = NearestNeighbour::new(acc[idx], items[idx], point);
-                results.add(neighbour);
-            }
-        });
-    }
-
-    /// Process points that don't fit into a full chunk for BestNeighbour results.
-    ///
-    /// This handles either leftover data after chunking or data that can't be chunked at all.
-    #[inline]
-    fn results_for_remainder_best<D, F, R, const C: usize>(points: [&[Self]; K], items: &[T], query: &[Self; K], scale: &[Self; K], include: F, results: &mut R)
-    where
-        D: DistanceMetric<Self, K>,
-        F: Fn(Self, T, &mut R) -> bool,
-        R: ResultCollection<BestNeighbour<Self, T, K>, Self, T, K>
-    {
-        // Handle variable-sized or remainder data
-        if points[0].is_empty() {
-            return; // Nothing to process
-        }
-
-        let len = points[0].len();
-        let mut acc = vec![Self::zero(); len];
-        
-        // For each dimension
-        (0..K).step_by(1).for_each(|dim| {
-            // For each point
-            (0..len).step_by(1).for_each(|idx| {
-                // Accumulate distance in this dimension
-                acc[idx] = D::accumulate(acc[idx], D::dist1(points[dim][idx], query[dim], scale[dim]));
-            });
-        });
-
-        // Iterate each computed distance, evaluating each for inclusion in the results
-        (0..len).step_by(1).for_each(|idx| {
-            if include(acc[idx], items[idx], results) {
-                let mut point = [Self::zero(); K];
-                for dim in 0..K {
-                    point[dim] = points[dim][idx];
-                }
-                let neighbour = BestNeighbour::new(acc[idx], items[idx], point);
+                let neighbour = N::new(acc[idx], items[idx], point);
                 results.add(neighbour);
             }
         });
