@@ -181,7 +181,7 @@ mod tests {
         query: &[A; K],
         radius: A,
         max_qty: usize,
-    ) -> Vec<BestNeighbour<A, u32>> {
+    ) -> Vec<BestNeighbour<A, u32, K>> {
         let mut best_items = Vec::with_capacity(max_qty);
 
         for &(p, item) in content {

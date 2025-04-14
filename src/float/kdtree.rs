@@ -27,9 +27,10 @@ pub trait Axis: FloatCore + Default + Debug + Copy + Sync + Send {
     /// propogating NaN values (they may be mapped to zero or inf).
     fn saturating_dist(self, other: Self) -> Self;
 
-    /// Provides versions of other 
+    /// Provides version of saturating add
     fn saturating_add(self, other: Self) -> Self;
 
+    /// Provides version of saturating mul
     fn saturating_mul(self, other: Self) -> Self;
     
     /// used in query methods to update the rd value. Basically a saturating add for Fixed and an add for Float

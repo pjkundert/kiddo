@@ -5,12 +5,12 @@ macro_rules! generate_nearest_n {
     doc_comment! {
     concat!$comments,
     #[inline]
-    pub fn nearest_n<D>(&self, query: &[A; K], qty: usize) -> Vec<NearestNeighbour<A, T, K>>
+    pub fn nearest_n<D>(&self, query: &[A; K], qty: usize) -> Vec<Neighbour<A, T, K>>
     where
         D: DistanceMetric<A, K>,
     {
         let unit = [A::one(); K];
-        self.nearest_n_scaled::<D>(query, &unit, qty)
+        self.nearest_n_scaled::<D>(query, &unit, qty).iter().map(|nn| nn.0).collect()
     }
 
     #[inline]

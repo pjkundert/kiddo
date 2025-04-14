@@ -5,13 +5,13 @@ macro_rules! generate_within {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn within<D>(&self, query: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T, K>>
+            pub fn within<D>(&self, query: &[A; K], dist: A) -> Vec<Neighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
-                let mut matching_items = self.within_unsorted::<D>(query, dist);
-                matching_items.sort();
-                matching_items
+		let unit = [A::one(); K];
+                self.within_scaled::<D>(query, &unit, dist).iter().map(|nn| nn.0).collect()
+
             }
 
             #[inline]

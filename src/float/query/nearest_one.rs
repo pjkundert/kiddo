@@ -3,7 +3,7 @@ use std::ops::Rem;
 
 use crate::float::kdtree::{Axis, KdTree, LeafNode};
 use crate::generate_nearest_one;
-use crate::neighbour::NearestNeighbour;
+use crate::neighbour::{NearestNeighbour, Neighbour};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 
@@ -86,7 +86,7 @@ where
 mod tests {
     use crate::float::distance::Manhattan;
     use crate::float::kdtree::{Axis, KdTree};
-    use crate::neighbour::NearestNeighbour;
+    use crate::neighbour::{NearestNeighbour, Neighbour};
     use crate::traits::DistanceMetric;
     use rand::Rng;
 
@@ -151,23 +151,26 @@ mod tests {
     fn can_query_nearest_one_item_large_scale() {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
+	const K: usize = 4;
+	const B: usize = 32;
+	const unit: [AX; K] = [1 as AX; K];
 
-        let content_to_add: Vec<([f32; 4], u32)> = (0..TREE_SIZE)
-            .map(|_| rand::random::<([f32; 4], u32)>())
+        let content_to_add: Vec<([AX; K], u32)> = (0..TREE_SIZE)
+            .map(|_| rand::random::<([AX; K], u32)>())
             .collect();
 
-        let mut tree: KdTree<AX, u32, 4, 32, u32> = KdTree::with_capacity(TREE_SIZE);
+        let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::with_capacity(TREE_SIZE);
         content_to_add
             .iter()
             .for_each(|(point, content)| tree.add(point, *content));
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[f32; 4]> = (0..NUM_QUERIES)
-            .map(|_| rand::random::<[f32; 4]>())
+        let query_points: Vec<[AX; K]> = (0..NUM_QUERIES)
+            .map(|_| rand::random::<[AX; K]>())
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point);
+            let expected = linear_search(&content_to_add, &query_point, &unit);
 
             let result = tree.nearest_one::<Manhattan>(&query_point);
 
@@ -179,21 +182,25 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
-    ) -> NearestNeighbour<A, u32> {
+	scale: &[A; K],
+    ) -> Neighbour<A, u32, K> {
         let mut best_dist: A = A::infinity();
         let mut best_item: u32 = u32::MAX;
+	let mut best_point = [A::zero(); K];
 
         for &(p, item) in content {
-            let dist = Manhattan::dist(query_point, &p);
+            let dist = Manhattan::dist(query_point, &p, &scale);
             if dist < best_dist {
                 best_item = item;
                 best_dist = dist;
+		best_point.copy_from_slice(&p);
             }
         }
 
-        NearestNeighbour {
+        Neighbour {
             distance: best_dist,
             item: best_item,
+	    point: best_point,
         }
     }
 }

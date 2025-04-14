@@ -75,11 +75,11 @@ fn test_kdtree_with_fixed_string() {
     assert_eq!(nearest.item.as_str(), "Origin");
     assert!((nearest.distance - (0.5f64*0.5+0.25*0.25).sqrt()) < f64::EPSILON);
     
-    let (nearest, nearest_point) = tree.nearest_one_point::<SquaredEuclidean>(&query_point);
+    let nearest = tree.nearest_one::<SquaredEuclidean>(&query_point);
     
     // The closest point should be [0.0, 0.0] with data "Origin"
     assert_eq!(nearest.item.as_str(), "Origin");
-    assert_eq!(nearest_point, [0.0, 0.0]);
+    assert_eq!(nearest.point, [0.0, 0.0]);
     assert!((nearest.distance - (0.5f64*0.5+0.25*0.25).sqrt()) < f64::EPSILON);
     
     // Test k-nearest neighbors

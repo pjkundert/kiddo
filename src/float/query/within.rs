@@ -1,7 +1,7 @@
 use az::Cast;
 
 use crate::float::kdtree::{Axis, KdTree};
-use crate::nearest_neighbour::NearestNeighbour;
+use crate::neighbour::{NearestNeighbour, Neighbour};
 use crate::traits::DistanceMetric;
 use crate::traits::{Content, Index};
 
@@ -71,7 +71,7 @@ let tree = unsafe { rkyv::archived_root::<KdTree<f64, 3>>(&mmap) };"
 mod tests {
     use crate::float::distance::Manhattan;
     use crate::float::kdtree::{Axis, KdTree};
-    use crate::nearest_neighbour::NearestNeighbour;
+    use crate::neighbour::{NearestNeighbour, Neighbour};
     use crate::traits::DistanceMetric;
     use rand::Rng;
     use std::cmp::Ordering;
@@ -138,24 +138,27 @@ mod tests {
     fn can_query_items_within_radius_large_scale() {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
-        const RADIUS: f32 = 0.2;
+        const RADIUS: AX = 0.2;
+	const K: usize = 4;
+	const B: usize = 32;
+	const unit: [AX; K] = [1 as AX; K];
 
-        let content_to_add: Vec<([f32; 4], u32)> = (0..TREE_SIZE)
-            .map(|_| rand::random::<([f32; 4], u32)>())
+        let content_to_add: Vec<([AX; K], u32)> = (0..TREE_SIZE)
+            .map(|_| rand::random::<([AX; K], u32)>())
             .collect();
 
-        let mut tree: KdTree<AX, u32, 4, 32, u32> = KdTree::with_capacity(TREE_SIZE);
+        let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::with_capacity(TREE_SIZE);
         content_to_add
             .iter()
             .for_each(|(point, content)| tree.add(point, *content));
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[f32; 4]> = (0..NUM_QUERIES)
-            .map(|_| rand::random::<[f32; 4]>())
+        let query_points: Vec<[AX; K]> = (0..NUM_QUERIES)
+            .map(|_| rand::random::<[AX; K]>())
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, RADIUS);
+            let expected = linear_search(&content_to_add, &query_point, &unit, RADIUS);
 
             let mut result: Vec<_> = tree.within::<Manhattan>(&query_point, RADIUS);
 
@@ -171,23 +174,24 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
+        scale: &[A; K],
         radius: A,
-    ) -> Vec<NearestNeighbour<A, u32>> {
+    ) -> Vec<Neighbour<A, u32, K>> {
         let mut matching_items = vec![];
 
         for &(p, item) in content {
-            let distance = Manhattan::dist(query_point, &p);
+            let distance = Manhattan::dist(query_point, &p, scale);
             if distance < radius {
-                matching_items.push(NearestNeighbour { distance, item });
+                matching_items.push( NearestNeighbour(Neighbour { distance, item, point: p.clone() }) );
             }
         }
 
         stabilize_sort(&mut matching_items);
 
-        matching_items
+        matching_items.iter().map(|nn| nn.0).collect()
     }
 
-    fn stabilize_sort<A: Axis>(matching_items: &mut [NearestNeighbour<A, u32>]) {
+    fn stabilize_sort<A: Axis, const K: usize>(matching_items: &mut [NearestNeighbour<A, u32, K>]) {
         matching_items.sort_unstable_by(|a, b| {
             let dist_cmp = a.distance.partial_cmp(&b.distance).unwrap();
             if dist_cmp == Ordering::Equal {

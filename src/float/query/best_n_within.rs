@@ -79,9 +79,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::neighbour::BestNeighbour;
+    use crate::neighbour::{BestNeighbour, Neighbour};
     use crate::float::distance::SquaredEuclidean;
-    use crate::float::kdtree::KdTree;
+    use crate::float::kdtree::{Axis, KdTree};
     use crate::traits::DistanceMetric;
     use rand::Rng;
 
@@ -160,25 +160,28 @@ mod tests {
     fn can_query_items_within_radius_large_scale() {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
+	const K: usize = 2;
+	const B: usize = 32;
+	const unit: [AX; K] = [1 as AX; K];
         let max_qty = 2;
 
-        let content_to_add: Vec<([AX; 2], i32)> = (0..TREE_SIZE)
-            .map(|_| rand::random::<([AX; 2], i32)>())
+        let content_to_add: Vec<([AX; K], i32)> = (0..TREE_SIZE)
+            .map(|_| rand::random::<([AX; K], i32)>())
             .collect();
 
-        let mut tree: KdTree<AX, i32, 2, 32, u32> = KdTree::with_capacity(TREE_SIZE);
+        let mut tree: KdTree<AX, i32, K, B, u32> = KdTree::with_capacity(TREE_SIZE);
         content_to_add
             .iter()
             .for_each(|(point, content)| tree.add(point, *content));
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[AX; 2]> = (0..NUM_QUERIES)
-            .map(|_| rand::random::<[AX; 2]>())
+        let query_points: Vec<[AX; K]> = (0..NUM_QUERIES)
+            .map(|_| rand::random::<[AX; K]>())
             .collect();
 
         for query_point in query_points {
             let radius = 100000f64;
-            let expected = linear_search(&content_to_add, &query_point, radius, max_qty);
+            let expected = linear_search(&content_to_add, &query_point, &unit, radius, max_qty);
 
             let result: Vec<_> = tree
                 .best_n_within::<SquaredEuclidean>(&query_point, radius, max_qty)
@@ -187,28 +190,29 @@ mod tests {
         }
     }
 
-    fn linear_search(
-        content: &[([f64; 2], i32)],
-        query: &[f64; 2],
-        radius: f64,
+    fn linear_search<A: Axis, const K: usize> (
+        content: &[([A; K], i32)],
+        query: &[A; K],
+        scale: &[A; K],
+        radius: A,
         max_qty: usize,
-    ) -> Vec<BestNeighbour<f64, i32>> {
+    ) -> Vec<Neighbour<A, i32, K>> {
         let mut best_items = Vec::with_capacity(max_qty);
 
         for &(p, item) in content {
-            let distance = SquaredEuclidean::dist(query, &p);
+            let distance = SquaredEuclidean::dist(query, &p, scale);
             if distance <= radius {
                 if best_items.len() < max_qty {
-                    best_items.push(BestNeighbour { distance, item });
+                    best_items.push(BestNeighbour( Neighbour { distance, item, point: p.clone() }));
                 } else if item < best_items.last().unwrap().item {
                     best_items.pop().unwrap();
-                    best_items.push(BestNeighbour { distance, item });
+                    best_items.push(BestNeighbour( Neighbour { distance, item, point: p.clone() }));
                 }
             }
             best_items.sort_unstable();
         }
         best_items.reverse();
 
-        best_items
+        best_items.iter().map(|nn| nn.0).collect()
     }
 }

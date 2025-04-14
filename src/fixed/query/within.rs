@@ -1,7 +1,7 @@
 use az::Cast;
 
 use crate::fixed::kdtree::{Axis, KdTree};
-use crate::nearest_neighbour::NearestNeighbour;
+use crate::neighbour::{NearestNeighbour, Neighbour};
 use crate::traits::DistanceMetric;
 use crate::traits::{Content, Index};
 

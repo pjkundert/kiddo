@@ -249,7 +249,7 @@ macro_rules! generate_immutable_best_n_within {
             {
                 let leaf_slice = self.get_leaf_slice(leaf_idx);
 
-                leaf_slice.best_n_within::<D, BestNeighbour<A, T, K>, BinaryHeap<BestNeighbour<A, T, K>>>(
+                leaf_slice.best_n_within::<D, BinaryHeap<BestNeighbour<A, T, K>>>(
                     query,
 		    scale,
                     radius,

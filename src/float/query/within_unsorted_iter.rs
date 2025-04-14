@@ -27,7 +27,7 @@ use kiddo::SquaredEuclidean;
             $doctest_build_tree,
             "
 
-let within = tree.within_unsorted_iter::<SquaredEuclidean>(&[1.0, 2.0, 5.0], 10f64).collect::<Vec<_>>();
+let within = tree.within_unsorted_iter::<SquaredEuclidean>(&[1.0, 2.0, 5.0], 10f64);
 
 assert_eq!(within.len(), 2);
 ```"
@@ -75,7 +75,7 @@ let tree = unsafe { rkyv::archived_root::<KdTree<f64, 3>>(&mmap) };"
 mod tests {
     use crate::float::distance::Manhattan;
     use crate::float::kdtree::{Axis, KdTree};
-    use crate::nearest_neighbour::NearestNeighbour;
+    use crate::neighbour::{NearestNeighbour, Neighbour};
     use crate::traits::DistanceMetric;
     use rand::Rng;
     use std::cmp::Ordering;
@@ -176,22 +176,24 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
+        scale: &[A; K],
         radius: A,
-    ) -> Vec<NearestNeighbour<A, u32>> {
+    ) -> Vec<Neighbour<A, u32, K>> {
         let mut matching_items = vec![];
 
         for &(p, item) in content {
-            let distance = Manhattan::dist(query_point, &p);
+            let distance = Manhattan::dist(query_point, &p, scale);
             if distance < radius {
-                matching_items.push(NearestNeighbour { distance, item });
+                matching_items.push( NearestNeighbour(Neighbour { distance, item, point: p.clone()}) );
             }
         }
 
         stabilize_sort(&mut matching_items);
-        matching_items
+
+        matching_items.iter().map(|nn| nn.0).collect()
     }
 
-    fn stabilize_sort<A: Axis>(matching_items: &mut [NearestNeighbour<A, u32>]) {
+    fn stabilize_sort<A: Axis, const K: usize>(matching_items: &mut [NearestNeighbour<A, u32, K>]) {
         matching_items.sort_unstable_by(|a, b| {
             let dist_cmp = a.distance.partial_cmp(&b.distance).unwrap();
             if dist_cmp == Ordering::Equal {

@@ -1,7 +1,7 @@
 //! A result item returned by a query
 //! Re-exports NearestNeighbour from neighbour.rs for backward compatibility
 
-pub use crate::neighbour::NearestNeighbour;
+pub use crate::neighbour::{NearestNeighbour, Neighbour};
 pub use crate::traits::Content;
 
 

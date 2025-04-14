@@ -81,10 +81,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::neighbour::BestNeighbour;
+    use crate::neighbour::{BestNeighbour, Neighbour};
     use crate::float::distance::SquaredEuclidean;
-    use crate::immutable::float::kdtree::ImmutableKdTree;
+    use crate::immutable::float::kdtree::{Axis, ImmutableKdTree};
     use crate::traits::DistanceMetric;
+    use sorted_vec::SortedVec;
     use rand::Rng;
     use std::num::NonZero;
 
@@ -195,6 +196,7 @@ mod tests {
             .map(|_| rand::random::<[AX; 2]>())
             .collect();
 
+	// radius is more than sufficient to select *all* of the content
         for query_point in query_points {
             let radius = 100000f64;
             let expected = linear_search(&content_to_add, &query_point, radius, max_qty.into());
@@ -206,34 +208,38 @@ mod tests {
         }
     }
 
-    fn linear_search(
-        content: &[[f64; 2]],
-        query: &[f64; 2],
-        radius: f64,
+    fn linear_search<A: Axis, const K: usize>(
+        content: &[[A; K]],
+        query: &[A; K],
+        scale: &[A; K],
+        radius: A,
         max_qty: usize,
-    ) -> Vec<BestNeighbour<f64, i32>> {
-        let mut best_items = Vec::with_capacity(max_qty);
+    ) -> Vec<Neighbour<A, i32, K>> {
+	// If max_qty is less than the length of content, an ordered container is required
+        let mut best_items = SortedVec::with_capacity(max_qty);
 
         for (item, p) in content.iter().enumerate() {
-            let distance = SquaredEuclidean::dist(query, p);
+            let distance = SquaredEuclidean::dist(query, p, scale);
             if distance <= radius {
                 if best_items.len() < max_qty {
-                    best_items.push(BestNeighbour {
+                    best_items.push(BestNeighbour::new(
                         distance,
-                        item: item as i32,
-                    });
-                } else if (item as i32) < best_items.last().unwrap().item {
+                        item as i32,
+			p,
+                    ));
+                } else if (item as i32) < best_items.last().unwrap().0.item {
                     best_items.pop().unwrap();
-                    best_items.push(BestNeighbour {
+                    best_items.push(BestNeighbour::new(
                         distance,
-                        item: item as i32,
-                    });
+                        item as i32,
+			p,
+                    ));
                 }
             }
             best_items.sort_unstable();
         }
         best_items.reverse();
 
-        best_items
+        best_items.iter().map(|bn| bn.0).collect()
     }
 }

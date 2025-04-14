@@ -2,7 +2,7 @@
 //! Re-exports BestNeighbour from neighbour.rs for backward compatibility
 
 
-pub use crate::neighbour::BestNeighbour;
+pub use crate::neighbour::{BestNeighbour, Neighbour};
 pub use crate::traits::Content;
 
 
@@ -16,15 +16,16 @@ mod tests {
     fn test_smoke() {
         let point = [1.0f64, 2.0, 3.0];
         let bn: BestNeighbour<f64, usize, 3> = BestNeighbour::new(1.0, 2, point);
-        assert_eq!(bn.distance(), 1.0);
-        assert_eq!(bn.item(), 2);
+        assert_eq!(bn.0.distance, 1.0);
+        assert_eq!(bn.0.item, 2);
+        assert_eq!(bn.0.point, point);
     }
 
     #[test]
     fn test_from_tuple() {
         let point = [1.0f32, 2.0, 3.0];
         let b: BestNeighbour<f32, usize, 3> = BestNeighbour::new(1.0f32, 1usize, point);
-        let nn: (f32, usize) = b.into_tuple();
+        let nn: (f32, usize) = b.into();
 
         assert_eq!(nn.0, 1.0f32);
         assert_eq!(nn.1, 1usize);
@@ -44,11 +45,11 @@ mod tests {
     #[test]
     fn test_best_neighbour_point_construction() {
         let point = [1.0, 2.0, 3.0];
-        let bp = BestNeighbourPoint::new_best(0.5, 42, point);
+        let bp = BestNeighbour::new(0.5, 42, point);
         
-        assert_eq!(bp.point, point);
-        assert_eq!(bp.neighbor.0.distance, 0.5);
-        assert_eq!(bp.neighbor.0.item, 42);
+        assert_eq!(bp.0.point, point);
+        assert_eq!(bp.0.distance, 0.5);
+        assert_eq!(bp.0.item, 42);
     }
 }
 

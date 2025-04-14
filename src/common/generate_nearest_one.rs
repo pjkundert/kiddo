@@ -5,16 +5,16 @@ macro_rules! generate_nearest_one {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn nearest_one<D>(&self, query: &[A; K]) -> NearestNeighbour<A, T, K>
+            pub fn nearest_one<D>(&self, query: &[A; K]) -> Neighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
                 let unit = [A::one(); K];
-                self.nearest_one_point::<D>(query, &unit)
+                self.nearest_one_scaled::<D>(query, &unit).0
             }
 
             #[inline]
-            pub fn nearest_one_point<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbour<A, T, K>
+            pub fn nearest_one_scaled<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {

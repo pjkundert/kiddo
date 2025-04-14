@@ -76,7 +76,7 @@ mod tests {
     use crate::float::distance::SquaredEuclidean;
     use crate::float::kdtree::Axis;
     use crate::immutable::float::kdtree::ImmutableKdTree;
-    use crate::neighbour::NearestNeighbour;
+    use crate::neighbour::{NearestNeighbour, Neighbour};
     use crate::traits::DistanceMetric;
     use rand::{Rng, SeedableRng};
 
@@ -224,20 +224,23 @@ mod tests {
 
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 1000;
+	const K: usize = 4;
+	const B: usize = 256;
+	const unit: [f32; K] = [1_f32; K];
 
-        let content_to_add: Vec<[f32; 4]> = (0..TREE_SIZE).map(|_| rng.gen::<[f32; 4]>()).collect();
+        let content_to_add: Vec<[f32; K]> = (0..TREE_SIZE).map(|_| rng.gen::<[f32; K]>()).collect();
 
-        let tree: ImmutableKdTree<f32, u32, 4, 256> =
+        let tree: ImmutableKdTree<f32, u32, K, B> =
             ImmutableKdTree::new_from_slice(&content_to_add);
 
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[f32; 4]> = (0..NUM_QUERIES)
-            .map(|_| rand::random::<[f32; 4]>())
+        let query_points: Vec<[f32; K]> = (0..NUM_QUERIES)
+            .map(|_| rand::random::<[f32; K]>())
             .collect();
 
         for query_point in query_points.iter() {
-            let expected = linear_search(&content_to_add, query_point);
+            let expected = linear_search(&content_to_add, query_point, &unit);
 
             let result = tree.nearest_one::<SquaredEuclidean>(query_point);
 
@@ -249,21 +252,25 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[[A; K]],
         query_point: &[A; K],
-    ) -> NearestNeighbour<A, usize> {
+        scale: &[A; K],
+    ) -> Neighbour<A, usize, K> {
         let mut best_dist: A = A::infinity();
         let mut best_item: usize = usize::MAX;
+	let mut best_point = [A::default(), K];
 
         for (idx, p) in content.iter().enumerate() {
             let dist = SquaredEuclidean::dist(query_point, p);
             if dist < best_dist {
                 best_item = idx;
                 best_dist = dist;
+		best_point.copy_from_slice(&p);
             }
         }
 
-        NearestNeighbour {
+        Neighbour {
             distance: best_dist,
             item: best_item,
+	    point: best_point,
         }
     }
 }

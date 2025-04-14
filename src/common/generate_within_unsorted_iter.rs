@@ -13,8 +13,29 @@ macro_rules! generate_within_unsorted_iter {
             where
                 D: DistanceMetric<A, K>,
             {
-		let unit = [A::one(); K];
-		self.within_unsorted_iter_scaled::<D>(query, &unit, dist)
+                // Create the generator directly with its own unit scale array
+                let gen = Gn::new_scoped(move |gen_scope| {
+                    // Create all necessary variables inside the generator scope
+                    let unit = [A::one(); K];
+                    let mut off = [A::zero(); K];
+                    
+                    unsafe {
+                        self.within_unsorted_iter_recurse::<D>(
+                            query,
+                            &unit,
+                            dist,
+                            self.root_index,
+                            0,
+                            gen_scope,
+                            &mut off,
+                            A::zero(),
+                        );
+                    }
+
+                    done!();
+                });
+
+                WithinUnsortedIter::new(gen)
             }
 
             #[inline]
@@ -27,9 +48,11 @@ macro_rules! generate_within_unsorted_iter {
             where
                 D: DistanceMetric<A, K>,
             {
-                let mut off = [A::zero(); K];
-
+                // Create the generator directly with its own offset array
                 let gen = Gn::new_scoped(move |gen_scope| {
+                    // Create offset array inside generator scope
+                    let mut off = [A::zero(); K];
+                    
                     unsafe {
                         self.within_unsorted_iter_recurse::<D>(
                             query,

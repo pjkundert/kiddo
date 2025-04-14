@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::ops::Rem;
 
 use crate::fixed::kdtree::{Axis, KdTree, LeafNode};
-use crate::neighbour::{NearestNeighbour, NeighbourEntry};
+use crate::neighbour::{NearestNeighbour, Neighbour};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 
@@ -56,7 +56,7 @@ The nearest_one_point version also returns the coordinates of the nearest point.
 mod tests {
     use crate::fixed::distance::Manhattan;
     use crate::fixed::kdtree::{Axis, KdTree};
-    use crate::neighbour::NearestNeighbour;
+    use crate::neighbour::{NearestNeighbour, Neighbour};
     use crate::test_utils::{rand_data_fixed_u16_entry, rand_data_fixed_u16_point};
     use crate::traits::DistanceMetric;
     use fixed::types::extra::U14;
@@ -127,23 +127,26 @@ mod tests {
     fn can_query_nearest_one_item_large_scale() {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
+	const K: usize = 4;
+	const B: usize = 4;
+	const unit: [Fxd; K] = [Fxd::ONE; K];
 
-        let content_to_add: Vec<([Fxd; 4], u32)> = (0..TREE_SIZE)
-            .map(|_| rand_data_fixed_u16_entry::<U14, u32, 4>())
+        let content_to_add: Vec<([Fxd; K], u32)> = (0..TREE_SIZE)
+            .map(|_| rand_data_fixed_u16_entry::<U14, u32, K>())
             .collect();
 
-        let mut tree: KdTree<Fxd, u32, 4, 4, u32> = KdTree::with_capacity(TREE_SIZE);
+        let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::with_capacity(TREE_SIZE);
         content_to_add
             .iter()
             .for_each(|(point, content)| tree.add(point, *content));
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[Fxd; 4]> = (0..NUM_QUERIES)
-            .map(|_| rand_data_fixed_u16_point::<U14, 4>())
+        let query_points: Vec<[Fxd; K]> = (0..NUM_QUERIES)
+            .map(|_| rand_data_fixed_u16_point::<U14, K>())
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point);
+            let expected = linear_search(&content_to_add, &query_point, &unit);
 
             let result = tree.nearest_one::<Manhattan>(&query_point);
 
@@ -154,21 +157,25 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
-    ) -> NearestNeighbour<A, u32> {
+	scale: &[A; K],
+    ) -> Neighbour<A, u32, K> {
         let mut best_dist: A = A::max_value();
         let mut best_item: u32 = u32::MAX;
+	let mut best_point = [A::default(); K];
 
         for &(p, item) in content {
-            let dist = Manhattan::dist(query_point, &p);
+            let dist = Manhattan::dist(query_point, &p, &scale);
             if dist < best_dist {
                 best_item = item;
                 best_dist = dist;
+		best_point.copy_from_slice(&p);
             }
         }
 
-        NearestNeighbour {
+        Neighbour {
             distance: best_dist,
             item: best_item,
+	    point: best_point,
         }
     }
 }
