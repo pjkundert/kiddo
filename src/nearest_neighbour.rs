@@ -14,7 +14,7 @@ mod tests {
     #[test]
     fn test_from_tuple() {
         let n = NearestNeighbour::new(1.0f32, 1usize);
-        let nn: (f32, usize) = n.0.into_tuple();
+        let nn: (f32, usize) = n.0.into();
 
         assert_eq!(nn.0, 1.0f32);
         assert_eq!(nn.1, 1usize);
