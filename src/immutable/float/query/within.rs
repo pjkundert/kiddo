@@ -77,12 +77,17 @@ mod tests {
     use crate::traits::DistanceMetric;
     use rand::Rng;
     use std::cmp::Ordering;
+    use num_traits::One;
 
     type AX = f32;
 
     #[test]
     fn can_query_items_within_radius() {
-        let content_to_add: [[AX; 4]; 16] = [
+	const K: usize = 4;
+	const B: usize = 4;
+	let unit: [AX; K] = [AX::one(); K];
+
+        let content_to_add: [[AX; K]; 16] = [
             [0.9f32, 0.0f32, 0.9f32, 0.0f32],
             [0.4f32, 0.5f32, 0.4f32, 0.51f32],
             [0.12f32, 0.3f32, 0.12f32, 0.3f32],
@@ -101,19 +106,19 @@ mod tests {
             [0.11f32, 0.2f32, 0.11f32, 0.2f32],
         ];
 
-        let tree: ImmutableKdTree<AX, u32, 4, 4> = ImmutableKdTree::new_from_slice(&content_to_add);
+        let tree: ImmutableKdTree<AX, u32, K, B> = ImmutableKdTree::new_from_slice(&content_to_add);
 
         assert_eq!(tree.size(), 16);
 
         let query_point = [0.78f32, 0.55f32, 0.78f32, 0.55f32];
 
         let radius = 0.2;
-        let expected = linear_search(&content_to_add, &query_point, radius);
+        let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
         let mut result: Vec<_> = tree
             .within::<Manhattan>(&query_point, radius)
             .into_iter()
-            .map(|n| (n.distance, n.item))
+            .map(|n| (n.0.distance, n.0.item))
             .collect();
         stabilize_sort(&mut result);
         assert_eq!(result, expected);
@@ -127,12 +132,12 @@ mod tests {
                 rng.gen_range(0f32..1f32),
             ];
             let radius: f32 = 2.0;
-            let expected = linear_search(&content_to_add, &query_point, radius);
+            let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
             let mut result: Vec<_> = tree
                 .within::<Manhattan>(&query_point, radius)
                 .into_iter()
-                .map(|n| (n.distance, n.item))
+                .map(|n| (n.0.distance, n.0.item))
                 .collect();
             stabilize_sort(&mut result);
 
@@ -146,24 +151,28 @@ mod tests {
         const NUM_QUERIES: usize = 100;
         const RADIUS: f32 = 0.2;
 
-        let content_to_add: Vec<[f32; 4]> =
-            (0..TREE_SIZE).map(|_| rand::random::<[f32; 4]>()).collect();
+	const K: usize = 4;
+	const B: usize = 32;
+	let unit: [f32; K] = [f32::one(); K];
 
-        let tree: ImmutableKdTree<AX, u32, 4, 32> =
+        let content_to_add: Vec<[f32; K]> =
+            (0..TREE_SIZE).map(|_| rand::random::<[f32; K]>()).collect();
+
+        let tree: ImmutableKdTree<f32, u32, K, B> =
             ImmutableKdTree::new_from_slice(&content_to_add);
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[f32; 4]> = (0..NUM_QUERIES)
-            .map(|_| rand::random::<[f32; 4]>())
+        let query_points: Vec<[f32; K]> = (0..NUM_QUERIES)
+            .map(|_| rand::random::<[f32; K]>())
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, RADIUS);
+            let expected = linear_search(&content_to_add, &query_point, &unit, RADIUS);
 
             let mut result: Vec<_> = tree
                 .within::<Manhattan>(&query_point, RADIUS)
                 .into_iter()
-                .map(|n| (n.distance, n.item))
+                .map(|n| (n.0.distance, n.0.item))
                 .collect();
 
             stabilize_sort(&mut result);
@@ -175,12 +184,13 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[[A; K]],
         query_point: &[A; K],
+        scale: &[A; K],
         radius: A,
     ) -> Vec<(A, u32)> {
         let mut matching_items = vec![];
 
         for (idx, p) in content.iter().enumerate() {
-            let dist = Manhattan::dist(query_point, p);
+            let dist = Manhattan::dist(query_point, p, scale);
             if dist < radius {
                 matching_items.push((dist, idx as u32));
             }

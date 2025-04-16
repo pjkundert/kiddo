@@ -88,6 +88,7 @@ mod tests {
     use sorted_vec::SortedVec;
     use rand::Rng;
     use std::num::NonZero;
+    use num_traits::One;
 
     type AX = f64;
 
@@ -105,15 +106,20 @@ mod tests {
 
         assert_eq!(
             first,
-            BestNeighbour {
+            BestNeighbour(Neighbour {
                 distance: 0.0,
-                item: 0
-            }
+                item: 0,
+		point: [1.0, 2.0, 5.0],
+            })
         );
     }
 
     #[test]
     fn can_query_best_n_items_within_radius() {
+	const K: usize = 2;
+	const B: usize = 4;
+	let unit: [AX; K] = [AX::one(); K];
+	
         let content_to_add = [
             [9f64, 0f64],
             [4f64, 500f64],
@@ -133,7 +139,7 @@ mod tests {
             [11f64, -200f64],
         ];
 
-        let tree: ImmutableKdTree<AX, i32, 2, 4> = ImmutableKdTree::new_from_slice(&content_to_add);
+        let tree: ImmutableKdTree<AX, i32, K, B> = ImmutableKdTree::new_from_slice(&content_to_add);
 
         assert_eq!(tree.size(), 16);
 
@@ -141,18 +147,21 @@ mod tests {
         let radius = 20000f64;
         let max_qty = NonZero::new(3).unwrap();
         let expected = vec![
-            BestNeighbour {
+            BestNeighbour(Neighbour {
                 distance: 10001.0,
                 item: 14,
-            },
-            BestNeighbour {
+		point: [8f64, 100f64],
+            }),
+            BestNeighbour(Neighbour {
                 distance: 0.0,
                 item: 0,
-            },
-            BestNeighbour {
+		point: [9f64, 0f64],
+            }),
+            BestNeighbour(Neighbour {
                 distance: 10001.0,
                 item: 9,
-            },
+		point: [10f64, -100f64],
+            }),
         ];
 
         let result: Vec<_> = tree
@@ -169,7 +178,7 @@ mod tests {
                 rng.gen_range(-1000f64..1000f64),
             ];
             let radius = 100000f64;
-            let expected = linear_search(&content_to_add, &query, radius, max_qty.into());
+            let expected = linear_search(&content_to_add, &query, &unit, radius, max_qty.into());
             //println!("{}, {}", query[0].to_string(), query[1].to_string());
 
             let result: Vec<_> = tree
@@ -183,23 +192,26 @@ mod tests {
     fn can_query_best_items_within_radius_large_scale() {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
+	const K: usize = 2;
+	const B: usize = 32;
+	let unit: [AX; K] = [AX::one(); K];
         let max_qty = NonZero::new(2).unwrap();
 
-        let content_to_add: Vec<[AX; 2]> =
+        let content_to_add: Vec<[AX; K]> =
             (0..TREE_SIZE).map(|_| rand::random::<[AX; 2]>()).collect();
 
-        let tree: ImmutableKdTree<AX, i32, 2, 32> =
+        let tree: ImmutableKdTree<AX, i32, K, B> =
             ImmutableKdTree::new_from_slice(&content_to_add);
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[AX; 2]> = (0..NUM_QUERIES)
-            .map(|_| rand::random::<[AX; 2]>())
+        let query_points: Vec<[AX; K]> = (0..NUM_QUERIES)
+            .map(|_| rand::random::<[AX; K]>())
             .collect();
 
 	// radius is more than sufficient to select *all* of the content
         for query_point in query_points {
             let radius = 100000f64;
-            let expected = linear_search(&content_to_add, &query_point, radius, max_qty.into());
+            let expected = linear_search(&content_to_add, &query_point, &unit, radius, max_qty.into());
 
             let result: Vec<_> = tree
                 .best_n_within::<SquaredEuclidean>(&query_point, radius, max_qty)
@@ -214,7 +226,7 @@ mod tests {
         scale: &[A; K],
         radius: A,
         max_qty: usize,
-    ) -> Vec<Neighbour<A, i32, K>> {
+    ) -> Vec<BestNeighbour<A, i32, K>> {
 	// If max_qty is less than the length of content, an ordered container is required
         let mut best_items = SortedVec::with_capacity(max_qty);
 
@@ -225,21 +237,23 @@ mod tests {
                     best_items.push(BestNeighbour::new(
                         distance,
                         item as i32,
-			p,
+			p.clone(),
                     ));
                 } else if (item as i32) < best_items.last().unwrap().0.item {
                     best_items.pop().unwrap();
                     best_items.push(BestNeighbour::new(
                         distance,
                         item as i32,
-			p,
+			p.clone(),
                     ));
                 }
             }
-            best_items.sort_unstable();
         }
-        best_items.reverse();
+        
+        // Convert to Vec before reversing
+        let mut result = best_items.to_vec();
+        result.reverse();
 
-        best_items.iter().map(|bn| bn.0).collect()
+        result
     }
 }

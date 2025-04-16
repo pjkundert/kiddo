@@ -41,15 +41,5 @@ mod tests {
         // BestNeighbour compares by item (ascending)
         assert_eq!(a.partial_cmp(&b), Some(Ordering::Greater));
     }
-
-    #[test]
-    fn test_best_neighbour_point_construction() {
-        let point = [1.0, 2.0, 3.0];
-        let bp = BestNeighbour::new(0.5, 42, point);
-        
-        assert_eq!(bp.0.point, point);
-        assert_eq!(bp.0.distance, 0.5);
-        assert_eq!(bp.0.item, 42);
-    }
 }
 

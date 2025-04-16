@@ -3,7 +3,7 @@ use generator::{done, Gn, Scope};
 use std::ops::Rem;
 
 use crate::float::kdtree::{Axis, KdTree};
-use crate::neighbour::NearestNeighbour;
+use crate::neighbour::{NearestNeighbour, Neighbour};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 use crate::within_unsorted_iter::WithinUnsortedIter;
@@ -139,7 +139,7 @@ mod tests {
             let mut result: Vec<_> = tree
                 .within_unsorted_iter::<Manhattan>(&query_point, radius)
                 .collect();
-	    let result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+	    let mut result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
             stabilize_sort(&mut result_sortable);
 	    result = result_sortable.iter().map(|nn| nn.0).collect();
 
@@ -177,7 +177,7 @@ mod tests {
                 .within_unsorted_iter::<Manhattan>(&query_point, RADIUS)
                 .collect();
 
-	    let result_sortable: Vec<NearestNeighbour<f32, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+	    let mut result_sortable: Vec<NearestNeighbour<f32, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
             stabilize_sort(&mut result_sortable);
 	    result = result_sortable.iter().map(|nn| nn.0).collect();
 
@@ -207,9 +207,9 @@ mod tests {
 
     fn stabilize_sort<A: Axis, const K: usize>(matching_items: &mut [NearestNeighbour<A, u32, K>]) {
         matching_items.sort_unstable_by(|a, b| {
-            let dist_cmp = a.distance.partial_cmp(&b.distance).unwrap();
+            let dist_cmp = a.0.distance.partial_cmp(&b.0.distance).unwrap();
             if dist_cmp == Ordering::Equal {
-                a.item.cmp(&b.item)
+                a.0.item.cmp(&b.0.item)
             } else {
                 dist_cmp
             }

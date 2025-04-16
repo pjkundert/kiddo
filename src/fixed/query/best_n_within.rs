@@ -144,7 +144,7 @@ mod tests {
             let radius = n(0.1f32);
             let expected = linear_search(&content_to_add, &query, &unit, radius, max_qty);
 
-            let mut result: Vec<_> = tree
+            let result: Vec<_> = tree
                 .best_n_within::<Manhattan>(&query, radius, max_qty)
                 .collect();
 
@@ -178,7 +178,7 @@ mod tests {
             let unit = [Fxd::one(); 4];
             let expected = linear_search(&content_to_add, &query_point, &unit, radius, max_qty);
 
-            let mut result: Vec<_> = tree
+            let result: Vec<_> = tree
                 .best_n_within::<Manhattan>(&query_point, radius, max_qty)
                 .collect();
 

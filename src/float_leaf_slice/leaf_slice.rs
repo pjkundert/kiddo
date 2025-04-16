@@ -15,11 +15,35 @@ pub(crate) struct LeafFixedSlice<'a, A: Axis, T: Content, const K: usize, const 
     pub content_items: &'a [T; C],
 }
 
-#[doc(hidden)]
-#[derive(Debug)]
-pub(crate) struct LeafSlice<'a, A: Axis, T: Content, const K: usize> {
-    pub content_points: [&'a [A]; K],
-    pub content_items: &'a [T],
+impl<'a, A: Axis, T: Content, const K: usize, const C: usize> LeafFixedSlice<'a, A, T, K, C> {
+    #[inline]
+    pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T, best_point: &mut [A; K])
+    where
+        D: DistanceMetric<A, K>,
+    {
+        // Calculate distances for all points in the chunk
+        let mut acc = [A::zero(); C];
+        
+        // For each dimension
+        for dim in 0..K {
+            // For each point in the chunk
+            for idx in 0..C {
+                // Accumulate distance in this dimension
+                acc[idx] = D::accumulate(acc[idx], D::dist1(self.content_points[dim][idx], query[dim], scale[dim]));
+            }
+        }
+
+        // Iterate each computed distance, evaluating each for inclusion in the results
+        for idx in 0..C {
+            if acc[idx] < *best_dist {
+                *best_dist = acc[idx];
+                *best_item = self.content_items[idx];
+                for dim in 0..K {
+                    best_point[dim] = self.content_points[dim][idx];
+                }
+            }
+        }
+    }
 }
 
 impl<A: Axis, T: Content, const K: usize> LeafSlice<'_, A, T, K> {
@@ -319,8 +343,14 @@ mod test {
         let mut best_item = u32::MAX;
 
         // Create a dummy point to satisfy the API
-        let mut best_point = [0.0f64; 2];
-        slice.nearest_one::<SquaredEuclidean>(&[0.0f64, 0.0f64], &[1.0f64, 1.0f64], &mut best_dist, &mut best_item, &mut best_point);
+        let mut best_point = [0.0f64; 4];
+        slice.nearest_one::<SquaredEuclidean>(
+	    &[0f64, 0f64, 0f64, 0f64],
+	    &[1f64, 1f64, 1f64, 1f64],
+	    &mut best_dist,
+	    &mut best_item,
+	    &mut best_point
+	);
 
         assert_eq!(best_dist, 0f64);
         assert_eq!(best_item, 1u32);

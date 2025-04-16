@@ -117,7 +117,7 @@ mod tests {
         let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
         let mut result: Vec<_> = tree.within::<Manhattan>(&query_point, radius);
-	let result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+	let mut result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
         stabilize_sort(&mut result_sortable);
 	result = result_sortable.iter().map(|nn| nn.0).collect();
         assert_eq!(result, expected);
@@ -134,7 +134,7 @@ mod tests {
             let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
             let mut result: Vec<_> = tree.within::<Manhattan>(&query_point, radius);
-	    let result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+	    let mut result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
             stabilize_sort(&mut result_sortable);
 	    result = result_sortable.iter().map(|nn| nn.0).collect();
 
@@ -173,7 +173,7 @@ mod tests {
             // Ensure that adjacent results with the same dist are sorted in order of item val
             // to prevent occasional test failures due to the linear search returning items
             // with the same dist in a different order to the query
-	    let result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+	    let mut result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
             stabilize_sort(&mut result_sortable);
 	    result = result_sortable.iter().map(|nn| nn.0).collect();
 

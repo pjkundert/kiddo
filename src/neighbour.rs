@@ -43,17 +43,6 @@ where
     pub point: [A; K],
 }
 
-impl<A, T, const K: usize> Neighbour<A, T, K>
-where
-    A: PartialOrd + Copy,
-    T: Content,
-{
-    /// Create a new Neighbour with distance, item, and point coordinates
-    pub fn new(distance: A, item: T, point: [A; K]) -> Self {
-        Self { distance, item, point }
-    }
-}
-
 impl<A, T, const K: usize> NeighbourEntry<A, T, K> for Neighbour<A, T, K>
 where
     A: PartialOrd + Copy,
@@ -72,6 +61,38 @@ where
         &self.point
     }
 }
+
+impl<A, T, const K: usize> Neighbour<A, T, K>
+where
+    A: PartialOrd + Copy,
+    T: Content,
+{
+    /// Create a new NearestNeighbour - re-export from NeighbourEntry trait
+    pub fn new(distance: A, item: T, point: [A; K]) -> Self {
+        <Self as NeighbourEntry<A, T, K>>::new(distance, item, point)
+    }
+}
+
+impl<A, T, const K: usize> From<Neighbour<A, T, K>> for (A, T)
+where
+    A: PartialOrd + Copy,
+    T: Content,
+{
+    fn from(neighbour: Neighbour<A, T, K>) -> Self {
+        (neighbour.distance, neighbour.item)
+    }
+}
+
+impl<A, T, const K: usize> From<Neighbour<A, T, K>> for (A, T, [A; K])
+where
+    A: PartialOrd + Copy,
+    T: Content,
+{
+    fn from(neighbour: Neighbour<A, T, K>) -> Self {
+        (neighbour.distance, neighbour.item, neighbour.point)
+    }
+}
+
 
 /// Wrapper for ordering by distance (ascending) - used for nearest neighbour queries
 /// 

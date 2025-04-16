@@ -72,12 +72,15 @@ mod tests {
     use crate::float::distance::Manhattan;
     use crate::immutable::float::kdtree::ImmutableKdTree;
     use crate::neighbour::NearestNeighbour;
-
+    
     type AX = f32;
 
     #[test]
     fn can_query_approx_nearest_one_item() {
-        let content_to_add: [[AX; 4]; 16] = [
+	const K: usize = 4;
+	const B: usize = 4;
+	
+        let content_to_add: [[AX; K]; 16] = [
             [0.9f32, 0.0f32, 0.9f32, 0.0f32],
             [0.4f32, 0.5f32, 0.4f32, 0.51f32],
             [0.12f32, 0.3f32, 0.12f32, 0.3f32],
@@ -96,17 +99,18 @@ mod tests {
             [0.11f32, 0.2f32, 0.11f32, 0.2f32],
         ];
 
-        let tree: ImmutableKdTree<AX, u32, 4, 4> = ImmutableKdTree::new_from_slice(&content_to_add);
+        let tree: ImmutableKdTree<AX, u32, K, B> = ImmutableKdTree::new_from_slice(&content_to_add);
 
         assert_eq!(tree.size(), 16);
         println!("Tree: {:?}", &tree);
 
         let query_point = [0.78f32, 0.55f32, 0.78f32, 0.55f32];
 
-        let expected = NearestNeighbour {
-            distance: 0.81999993,
-            item: 13,
-        };
+        let expected = NearestNeighbour::new(
+            0.81999993,
+            13,
+            [0.15f32, 0.6f32, 0.15f32, 0.6f32],
+        );
 
         let result = tree.approx_nearest_one::<Manhattan>(&query_point);
         assert_eq!(result, expected);

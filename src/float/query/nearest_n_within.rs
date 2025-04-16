@@ -243,7 +243,6 @@ mod tests {
     fn can_query_nearest_n_items_unsorted_max_qty() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [AX; K] = [AX::one(); K];
         let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::new();
 
         let content_to_add: [([AX; K], u32); 16] = [

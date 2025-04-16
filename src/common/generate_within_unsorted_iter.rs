@@ -9,7 +9,7 @@ macro_rules! generate_within_unsorted_iter {
                 &'a self,
                 query: &'a [A; K],
                 dist: A,
-            ) -> WithinUnsortedIter<'a, A, T, K>
+            ) -> impl Iterator<Item = Neighbour<A, T, K>> + 'a
             where
                 D: DistanceMetric<A, K>,
             {
@@ -35,7 +35,8 @@ macro_rules! generate_within_unsorted_iter {
                     done!();
                 });
 
-                WithinUnsortedIter::new(gen)
+                // Convert the generator to an iterator that yields Neighbour<A, T, K>
+                WithinUnsortedIter::new(gen).map(|nn| nn.0)
             }
 
             #[inline]
@@ -44,7 +45,7 @@ macro_rules! generate_within_unsorted_iter {
                 query: &'a [A; K],
                 scale: &'a [A; K],
                 dist: A,
-            ) -> WithinUnsortedIter<'a, A, T, K>
+            ) -> impl Iterator<Item = NearestNeighbour<A, T, K>> + 'a
             where
                 D: DistanceMetric<A, K>,
             {
@@ -69,6 +70,7 @@ macro_rules! generate_within_unsorted_iter {
                     done!();
                 });
 
+                // Return the iterator directly as it already yields NearestNeighbour<A, T, K>
                 WithinUnsortedIter::new(gen)
             }
 
