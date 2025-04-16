@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::ops::Rem;
 
 use crate::fixed::kdtree::{Axis, KdTree};
-use crate::neighbour::NearestNeighbour;
+use crate::neighbour::{NearestNeighbour, Neighbour};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
 
@@ -53,6 +53,7 @@ mod tests {
     use fixed::FixedU16;
     use rand::Rng;
     use std::cmp::Ordering;
+    use num_traits::One;
 
     type Fxd = FixedU16<U14>;
 
@@ -62,9 +63,12 @@ mod tests {
 
     #[test]
     fn can_query_items_within_radius() {
-        let mut tree: KdTree<Fxd, u32, 4, 5, u32> = KdTree::new();
+	const K: usize = 4;
+	const B: usize = 5;
+	let unit: [Fxd; K] = [Fxd::one(); K];
+        let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::new();
 
-        let content_to_add: [([Fxd; 4], u32); 16] = [
+        let content_to_add: [([Fxd; K], u32); 16] = [
             ([n(0.9f32), n(0.0f32), n(0.9f32), n(0.0f32)], 9),
             ([n(0.4f32), n(0.5f32), n(0.4f32), n(0.5f32)], 4),
             ([n(0.12f32), n(0.3f32), n(0.12f32), n(0.3f32)], 12),
@@ -92,7 +96,7 @@ mod tests {
         let query_point = [n(0.78f32), n(0.55f32), n(0.78f32), n(0.55f32)];
 
         let radius = n(0.2);
-        let expected = linear_search(&content_to_add, &query_point, radius);
+        let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
         let result: Vec<_> = tree
             .within_unsorted::<Manhattan>(&query_point, radius)
@@ -110,7 +114,7 @@ mod tests {
                 n(rng.gen_range(0f32..1f32)),
             ];
             let radius = n(2.0);
-            let expected = linear_search(&content_to_add, &query_point, radius);
+            let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
             let mut result: Vec<_> = tree
                 .within_unsorted::<Manhattan>(&query_point, radius)
@@ -127,24 +131,27 @@ mod tests {
     fn can_query_items_within_radius_large_scale() {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
+	const K: usize = 4;
+	const B: usize = 4;
+	let unit: [Fxd; K] = [Fxd::one(); K];
         let radius: Fxd = n(0.2);
 
-        let content_to_add: Vec<([Fxd; 4], u32)> = (0..TREE_SIZE)
+        let content_to_add: Vec<([Fxd; K], u32)> = (0..TREE_SIZE)
             .map(|_| rand_data_fixed_u16_entry::<U14, u32, 4>())
             .collect();
 
-        let mut tree: KdTree<Fxd, u32, 4, 4, u32> = KdTree::with_capacity(TREE_SIZE);
+        let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::with_capacity(TREE_SIZE);
         content_to_add
             .iter()
             .for_each(|(point, content)| tree.add(point, *content));
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[Fxd; 4]> = (0..NUM_QUERIES)
-            .map(|_| rand_data_fixed_u16_point::<U14, 4>())
+        let query_points: Vec<[Fxd; K]> = (0..NUM_QUERIES)
+            .map(|_| rand_data_fixed_u16_point::<U14, K>())
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, radius);
+            let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
             let mut result: Vec<_> = tree
                 .within_unsorted::<Manhattan>(&query_point, radius)
@@ -160,12 +167,13 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
+        scale: &[A; K],
         radius: A,
     ) -> Vec<(A, u32)> {
         let mut matching_items = vec![];
 
         for &(p, item) in content {
-            let dist = Manhattan::dist(query_point, &p);
+            let dist = Manhattan::dist(query_point, &p, scale);
             if dist < radius {
                 matching_items.push((dist, item));
             }

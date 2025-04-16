@@ -75,14 +75,18 @@ mod tests {
     use crate::traits::DistanceMetric;
     use rand::Rng;
     use std::cmp::Ordering;
+    use num_traits::One;
 
     type AX = f32;
 
     #[test]
     fn can_query_items_within_radius() {
-        let mut tree: KdTree<AX, u32, 4, 5, u32> = KdTree::new();
+	const K: usize = 4;
+	const B: usize = 5;
+	let unit: [AX; K] = [AX::one(); K];
+        let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::new();
 
-        let content_to_add: [([AX; 4], u32); 16] = [
+        let content_to_add: [([AX; K], u32); 16] = [
             ([0.9f32, 0.0f32, 0.9f32, 0.0f32], 9),
             ([0.4f32, 0.5f32, 0.4f32, 0.5f32], 4),
             ([0.12f32, 0.3f32, 0.12f32, 0.3f32], 12),
@@ -110,10 +114,12 @@ mod tests {
         let query_point = [0.78f32, 0.55f32, 0.78f32, 0.55f32];
 
         let radius = 0.2;
-        let expected = linear_search(&content_to_add, &query_point, radius);
+        let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
         let mut result: Vec<_> = tree.within::<Manhattan>(&query_point, radius);
-        stabilize_sort(&mut result);
+	let result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+        stabilize_sort(&mut result_sortable);
+	result = result_sortable.iter().map(|nn| nn.0).collect();
         assert_eq!(result, expected);
 
         let mut rng = rand::thread_rng();
@@ -125,10 +131,12 @@ mod tests {
                 rng.gen_range(0f32..1f32),
             ];
             let radius: f32 = 2.0;
-            let expected = linear_search(&content_to_add, &query_point, radius);
+            let expected = linear_search(&content_to_add, &query_point, &unit, radius);
 
             let mut result: Vec<_> = tree.within::<Manhattan>(&query_point, radius);
-            stabilize_sort(&mut result);
+	    let result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+            stabilize_sort(&mut result_sortable);
+	    result = result_sortable.iter().map(|nn| nn.0).collect();
 
             assert_eq!(result, expected);
         }
@@ -162,10 +170,12 @@ mod tests {
 
             let mut result: Vec<_> = tree.within::<Manhattan>(&query_point, RADIUS);
 
-            // TODO: ensure that adjacent results with the same dist are sorted in order of item val
-            //       to prevent occasional test failures due to the linear search returning items
-            //       with the same dist in a different order to the query
-            stabilize_sort(&mut result);
+            // Ensure that adjacent results with the same dist are sorted in order of item val
+            // to prevent occasional test failures due to the linear search returning items
+            // with the same dist in a different order to the query
+	    let result_sortable: Vec<NearestNeighbour<AX, u32, K>> = result.into_iter().map(|n| NearestNeighbour(n)).collect();
+            stabilize_sort(&mut result_sortable);
+	    result = result_sortable.iter().map(|nn| nn.0).collect();
 
             assert_eq!(result, expected);
         }
@@ -193,9 +203,9 @@ mod tests {
 
     fn stabilize_sort<A: Axis, const K: usize>(matching_items: &mut [NearestNeighbour<A, u32, K>]) {
         matching_items.sort_unstable_by(|a, b| {
-            let dist_cmp = a.distance.partial_cmp(&b.distance).unwrap();
+            let dist_cmp = a.0.distance.partial_cmp(&b.0.distance).unwrap();
             if dist_cmp == Ordering::Equal {
-                a.item.cmp(&b.item)
+                a.0.item.cmp(&b.0.item)
             } else {
                 dist_cmp
             }

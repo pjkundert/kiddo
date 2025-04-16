@@ -5,12 +5,12 @@ macro_rules! generate_within_unsorted {
         doc_comment! {
             concat!$comments,
             #[inline]
-            pub fn within_unsorted<D>(&self, query: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T, K>>
+            pub fn within_unsorted<D>(&self, query: &[A; K], dist: A) -> Vec<Neighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
                 let unit = [A::one(); K];
-		self.within_unsorted_scaled::<D>(query, &unit, dist)
+		self.within_unsorted_scaled::<D>(query, &unit, dist).iter().map(|nn| nn.0).collect()
             }
 
             #[inline]

@@ -10,12 +10,12 @@ macro_rules! generate_best_n_within {
         query: &[A; K],
         dist: A,
         max_qty: usize,
-    ) -> impl Iterator<Item = BestNeighbour<A, T, K>>
+    ) -> impl Iterator<Item = Neighbour<A, T, K>>
     where
         D: DistanceMetric<A, K>,
     {
 	let unit = [A::one(); K];
-	self.best_n_within_scaled::<D>(query, &unit, dist, max_qty)
+	self.best_n_within_scaled::<D>(query, &unit, dist, max_qty).map(|nn| nn.0)
     }
 
     #[inline]

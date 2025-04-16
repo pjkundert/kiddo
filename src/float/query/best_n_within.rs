@@ -2,7 +2,7 @@ use az::{Az, Cast};
 use std::collections::BinaryHeap;
 use std::ops::Rem;
 
-use crate::neighbour::BestNeighbour;
+use crate::neighbour::{BestNeighbour, Neighbour};
 use crate::float::kdtree::{Axis, KdTree, LeafNode};
 use crate::traits::DistanceMetric;
 use crate::traits::{is_stem_index, Content, Index};
@@ -83,12 +83,16 @@ mod tests {
     use crate::float::distance::SquaredEuclidean;
     use crate::float::kdtree::{Axis, KdTree};
     use crate::traits::DistanceMetric;
+    use num_traits::One;
     use rand::Rng;
 
     type AX = f64;
 
     #[test]
     fn can_query_best_n_items_within_radius() {
+	const K: usize = 2;
+	const B: usize = 4;
+	let unit: [AX; K] = [AX::one(); K];
         let mut tree: KdTree<AX, i32, 2, 4, u32> = KdTree::new();
 
         let content_to_add = [
@@ -119,17 +123,20 @@ mod tests {
         let radius = 20000f64;
         let max_qty = 3;
         let expected = vec![
-            BestNeighbour {
+            Neighbour {
                 distance: 10001.0,
                 item: 10,
+		point: [8f64, 100f64],
             },
-            BestNeighbour {
+            Neighbour {
                 distance: 0.0,
                 item: 9,
+		point: [9f64, 0f64],
             },
-            BestNeighbour {
+            Neighbour {
                 distance: 10001.0,
                 item: 8,
+		point: [8f64, 100f64],
             },
         ];
 
@@ -147,7 +154,7 @@ mod tests {
                 rng.gen_range(-1000f64..1000f64),
             ];
             let radius = 100000f64;
-            let expected = linear_search(&content_to_add, &query, radius, max_qty);
+            let expected = linear_search(&content_to_add, &query, &unit, radius, max_qty);
 
             let result: Vec<_> = tree
                 .best_n_within::<SquaredEuclidean>(&query, radius, max_qty)
@@ -204,7 +211,7 @@ mod tests {
             if distance <= radius {
                 if best_items.len() < max_qty {
                     best_items.push(BestNeighbour( Neighbour { distance, item, point: p.clone() }));
-                } else if item < best_items.last().unwrap().item {
+                } else if item < best_items.last().unwrap().0.item {
                     best_items.pop().unwrap();
                     best_items.push(BestNeighbour( Neighbour { distance, item, point: p.clone() }));
                 }

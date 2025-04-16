@@ -7,6 +7,7 @@
 //!
 use az::{Az, Cast};
 use divrem::DivCeil;
+use num_traits::{Zero, One};
 use num_traits::float::FloatCore;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
@@ -22,7 +23,7 @@ use serde::{Deserialize, Serialize};
 /// by the type that is used as the first generic parameter, `A`,
 /// on the float [`KdTree`]. This will be [`f64`] or [`f32`],
 /// or [`f16`](https://docs.rs/half/latest/half/struct.f16.html) if the `f16` feature is enabled
-pub trait Axis: FloatCore + Default + Debug + Copy + Sync + Send {
+pub trait Axis: FloatCore + Zero + One + Default + Debug + Copy + Sync + Send {
     /// returns absolute diff between two values of a type implementing this trait, avoiding
     /// propogating NaN values (they may be mapped to zero or inf).
     fn saturating_dist(self, other: Self) -> Self;
@@ -37,7 +38,7 @@ pub trait Axis: FloatCore + Default + Debug + Copy + Sync + Send {
     fn rd_update(rd: Self, delta: Self) -> Self;
 }
 
-impl<T: FloatCore + Default + Debug + Copy + Sync + Send> Axis for T {
+impl<T: FloatCore + Zero + One + Default + Debug + Copy + Sync + Send> Axis for T {
     fn saturating_dist(self, other: Self) -> Self {
 	if self < other {
 	    other - self

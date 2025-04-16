@@ -129,10 +129,10 @@ pub trait DistanceMetric<A, const K: usize> {
     /// Be careful to handle NaN cases to produce an appropriate distance metric (eg. zero() or inf)
     /// to properly position the case for your application.  Default is to ignore NaN and produce a
     /// zero distance metric.  Thus, this default should work for most metrics requiring an absolute
-    /// scaled distance metric, for most numerical A types w/ a num_traits::Zero implementation, at
-    /// the cost of one extra comparison for types without NaN, and two extra comparisons for types
-    /// that could ignore sign, like squared Euclidean.  However, the automatic NaN handling may be
-    /// worth the investment...  For fixed types that do not saturate to +/- inf, using .saturating_dist
+    /// scaled distance metric, for most numerical A types w/ a ::zero() implementation, at the cost
+    /// of one extra comparison for types without NaN, and two extra comparisons for types that
+    /// could ignore sign, like squared Euclidean.  However, the automatic NaN handling may be worth
+    /// the investment...  For fixed types that do not saturate to +/- inf, using .saturating_dist
     /// is the appropriate choice.
     fn dist1(a: A, b: A, scale: A) -> A;
 }

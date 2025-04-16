@@ -86,17 +86,21 @@ where
 mod tests {
     use crate::float::distance::Manhattan;
     use crate::float::kdtree::{Axis, KdTree};
-    use crate::neighbour::{NearestNeighbour, Neighbour};
+    use crate::neighbour::Neighbour;
     use crate::traits::DistanceMetric;
     use rand::Rng;
+    use num_traits::One;
 
     type AX = f32;
 
     #[test]
     fn can_query_nearest_one_item() {
-        let mut tree: KdTree<AX, u32, 4, 8, u32> = KdTree::new();
+	const K: usize = 4;
+	const B: usize = 8;
+	let unit: [AX; K] = [AX::one(); K];
+        let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::new();
 
-        let content_to_add: [([AX; 4], u32); 16] = [
+        let content_to_add: [([AX; K], u32); 16] = [
             ([0.9f32, 0.0f32, 0.9f32, 0.0f32], 9),    // 1.34
             ([0.4f32, 0.5f32, 0.4f32, 0.51f32], 4),   // 0.86
             ([0.12f32, 0.3f32, 0.12f32, 0.3f32], 12), // 1.82
@@ -123,9 +127,10 @@ mod tests {
 
         let query_point = [0.78f32, 0.55f32, 0.78f32, 0.55f32];
 
-        let expected = NearestNeighbour {
+        let expected = Neighbour {
             distance: 0.819_999_93,
             item: 5,
+            point: [0.5f32, 0.4f32, 0.5f32, 0.44f32],
         };
 
         let result = tree.nearest_one::<Manhattan>(&query_point);
@@ -139,7 +144,7 @@ mod tests {
                 rng.gen_range(0f32..1f32),
                 rng.gen_range(0f32..1f32),
             ];
-            let expected = linear_search(&content_to_add, &query_point);
+            let expected = linear_search(&content_to_add, &query_point, &unit);
 
             let result = tree.nearest_one::<Manhattan>(&query_point);
 

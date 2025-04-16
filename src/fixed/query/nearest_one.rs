@@ -56,11 +56,12 @@ The nearest_one_point version also returns the coordinates of the nearest point.
 mod tests {
     use crate::fixed::distance::Manhattan;
     use crate::fixed::kdtree::{Axis, KdTree};
-    use crate::neighbour::{NearestNeighbour, Neighbour};
+    use crate::neighbour::Neighbour;
     use crate::test_utils::{rand_data_fixed_u16_entry, rand_data_fixed_u16_point};
     use crate::traits::DistanceMetric;
     use fixed::types::extra::U14;
     use fixed::FixedU16;
+    use num_traits::One;
     use rand::Rng;
 
     type Fxd = FixedU16<U14>;
@@ -71,9 +72,13 @@ mod tests {
 
     #[test]
     fn can_query_nearest_one_item() {
-        let mut tree: KdTree<Fxd, u32, 4, 4, u32> = KdTree::new();
+	const K: usize = 4;
+	const B: usize = 4;
+	let unit: [Fxd; K] = [Fxd::one(); K];
+	    
+        let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::new();
 
-        let content_to_add: [([Fxd; 4], u32); 16] = [
+        let content_to_add: [([Fxd; K], u32); 16] = [
             ([n(0.9f32), n(0.0f32), n(0.9f32), n(0.0f32)], 9),
             ([n(0.4f32), n(0.5f32), n(0.4f32), n(0.5f32)], 4),
             ([n(0.12f32), n(0.3f32), n(0.12f32), n(0.3f32)], 12),
@@ -99,9 +104,10 @@ mod tests {
         assert_eq!(tree.size(), 16);
 
         let query_point = [n(0.78f32), n(0.55f32), n(0.78f32), n(0.55f32)];
-        let expected = NearestNeighbour {
+        let expected = Neighbour {
             distance: n(0.86),
             item: 7,
+	    point: [n(0.7f32), n(0.2f32), n(0.7f32), n(0.2f32)],
         };
 
         let result = tree.nearest_one::<Manhattan>(&query_point);
@@ -115,7 +121,7 @@ mod tests {
                 n(rng.gen_range(0f32..1f32)),
                 n(rng.gen_range(0f32..1f32)),
             ];
-            let expected = linear_search(&content_to_add, &query_point);
+            let expected = linear_search(&content_to_add, &query_point, &unit);
 
             let result = tree.nearest_one::<Manhattan>(&query_point);
 

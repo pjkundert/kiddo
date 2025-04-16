@@ -12,12 +12,15 @@ macro_rules! generate_nearest_n_within_unsorted {
 		dist: A,
 		max_items: std::num::NonZero<usize>,
 		sorted: bool
-	    ) -> Vec<NearestNeighbour<A, T, K>>
+	    ) -> Vec<Neighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
 		let unit = [A::one(); K];
                 self.nearest_n_within_scaled::<D>(query, &unit, dist, max_items, sorted)
+		    .iter()
+		    .map(|nn| nn.0)
+		    .collect()
             }
 
             #[inline]

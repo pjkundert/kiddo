@@ -347,12 +347,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use fixed::types::extra::U16;
+    use fixed::types::extra::U15;
     use fixed::FixedU16;
 
     use crate::fixed::kdtree::KdTree;
 
-    type Fxd = FixedU16<U16>;
+    type Fxd = FixedU16<U15>;
 
     fn n(num: f32) -> Fxd {
         Fxd::from_num(num)

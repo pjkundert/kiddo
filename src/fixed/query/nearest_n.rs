@@ -50,6 +50,7 @@ mod tests {
     use crate::traits::DistanceMetric;
     use fixed::types::extra::U14;
     use fixed::FixedU16;
+    use num_traits::One;
     use rand::Rng;
 
     type Fxd = FixedU16<U14>;
@@ -60,9 +61,11 @@ mod tests {
 
     #[test]
     fn can_query_nearest_n_items() {
-        let mut tree: KdTree<Fxd, u32, 4, 4, u32> = KdTree::new();
+	const K: usize = 4;
+	const B: usize = 4;
+        let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::new();
 
-        let content_to_add: [([Fxd; 4], u32); 16] = [
+        let content_to_add: [([Fxd; K], u32); 16] = [
             ([n(0.9f32), n(0.0f32), n(0.9f32), n(0.0f32)], 9),
             ([n(0.4f32), n(0.5f32), n(0.4f32), n(0.5f32)], 4),
             ([n(0.12f32), n(0.3f32), n(0.12f32), n(0.3f32)], 12),
@@ -98,6 +101,7 @@ mod tests {
             .collect();
         assert_eq!(result, expected);
 
+	let unit = [Fxd::one(); K];
         let qty = 10;
         let mut rng = rand::thread_rng();
         for _i in 0..1000 {
@@ -107,7 +111,7 @@ mod tests {
                 n(rng.gen_range(0f32..1f32)),
                 n(rng.gen_range(0f32..1f32)),
             ];
-            let expected = linear_search(&content_to_add, qty, &query_point);
+            let expected = linear_search(&content_to_add, &query_point, &unit, qty);
 
             let result: Vec<_> = tree
                 .nearest_n::<Manhattan>(&query_point, qty)
@@ -126,24 +130,27 @@ mod tests {
     fn can_query_nearest_n_items_large_scale() {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
+	const K: usize = 4;
+	const B: usize = 4;
         const N: usize = 10;
 
-        let content_to_add: Vec<([Fxd; 4], u32)> = (0..TREE_SIZE)
-            .map(|_| rand_data_fixed_u16_entry::<U14, u32, 4>())
+        let content_to_add: Vec<([Fxd; K], u32)> = (0..TREE_SIZE)
+            .map(|_| rand_data_fixed_u16_entry::<U14, u32, K>())
             .collect();
 
-        let mut tree: KdTree<Fxd, u32, 4, 4, u32> = KdTree::with_capacity(TREE_SIZE);
+        let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::with_capacity(TREE_SIZE);
         content_to_add
             .iter()
             .for_each(|(point, content)| tree.add(point, *content));
         assert_eq!(tree.size(), TREE_SIZE);
 
-        let query_points: Vec<[Fxd; 4]> = (0..NUM_QUERIES)
-            .map(|_| rand_data_fixed_u16_point::<U14, 4>())
+        let query_points: Vec<[Fxd; K]> = (0..NUM_QUERIES)
+            .map(|_| rand_data_fixed_u16_point::<U14, K>())
             .collect();
 
+	let unit = [Fxd::one(); K];
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, N, &query_point);
+            let expected = linear_search(&content_to_add, &query_point, &unit, N);
 
             let result: Vec<_> = tree
                 .nearest_n::<Manhattan>(&query_point, N)
@@ -160,13 +167,14 @@ mod tests {
 
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
-        qty: usize,
         query_point: &[A; K],
+	scale: &[A; K],
+        qty: usize,
     ) -> Vec<(A, u32)> {
         let mut results = vec![];
 
         for &(p, item) in content {
-            let dist = Manhattan::dist(query_point, &p);
+            let dist = Manhattan::dist(query_point, &p, scale);
             if results.len() < qty {
                 results.push((dist, item));
                 results.sort_by(|(a_dist, _), (b_dist, _)| a_dist.partial_cmp(b_dist).unwrap());
