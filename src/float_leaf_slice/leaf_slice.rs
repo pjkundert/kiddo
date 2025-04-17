@@ -7,6 +7,7 @@ use crate::{float::kdtree::Axis, neighbour::{NearestNeighbour, BestNeighbour, Ne
 
 const CHUNK_SIZE: usize = 32;
 
+/// LeafFixedSlice for Leaf slice w/ fixed length C
 #[doc(hidden)]
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -15,37 +16,50 @@ pub(crate) struct LeafFixedSlice<'a, A: Axis, T: Content, const K: usize, const 
     pub content_items: &'a [T; C],
 }
 
-impl<'a, A: Axis, T: Content, const K: usize, const C: usize> LeafFixedSlice<'a, A, T, K, C> {
-    #[inline]
-    pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T, best_point: &mut [A; K])
-    where
-        D: DistanceMetric<A, K>,
-    {
-        // Calculate distances for all points in the chunk
-        let mut acc = [A::zero(); C];
+// impl<'a, A, T, const K: usize, const C: usize> LeafFixedSlice<'a, A, T, K, C>
+// where
+//     A: Axis + LeafSliceFloatChunk<T, K>,
+//     T: Content,
+//     usize: Cast<T>,
+// {
+//     #[inline]
+//     pub(crate) fn nearest_one<D>(&self, query: &[A; K], scale: &[A; K], best_dist: &mut A, best_item: &mut T, best_point: &mut [A; K])
+//     where
+//         D: DistanceMetric<A, K>,
+//     {
+//         // Calculate distances for all points in the chunk
+//         let mut acc = [A::zero(); C];
         
-        // For each dimension
-        for dim in 0..K {
-            // For each point in the chunk
-            for idx in 0..C {
-                // Accumulate distance in this dimension
-                acc[idx] = D::accumulate(acc[idx], D::dist1(self.content_points[dim][idx], query[dim], scale[dim]));
-            }
-        }
+//         // For each dimension
+//         for dim in 0..K {
+//             // For each point in the chunk
+//             for idx in 0..C {
+//                 // Accumulate distance in this dimension
+//                 acc[idx] = D::accumulate(acc[idx], D::dist1(self.content_points[dim][idx], query[dim], scale[dim]));
+//             }
+//         }
 
-        // Iterate each computed distance, evaluating each for inclusion in the results
-        for idx in 0..C {
-            if acc[idx] < *best_dist {
-                *best_dist = acc[idx];
-                *best_item = self.content_items[idx];
-                for dim in 0..K {
-                    best_point[dim] = self.content_points[dim][idx];
-                }
-            }
-        }
-    }
+//         // Iterate each computed distance, evaluating each for inclusion in the results
+//         for idx in 0..C {
+//             if acc[idx] < *best_dist {
+//                 *best_dist = acc[idx];
+//                 *best_item = self.content_items[idx];
+//                 for dim in 0..K {
+//                     best_point[dim] = self.content_points[dim][idx];
+//                 }
+//             }
+//         }
+//     }
+// }
+
+#[doc(hidden)]
+#[derive(Debug)]
+pub(crate) struct LeafSlice<'a, A: Axis, T: Content, const K: usize> {
+    pub content_points: [&'a [A]; K],
+    pub content_items: &'a [T],
 }
 
+/// LeafFixedSlice for Leaf slice w/ arbitrary length
 impl<A: Axis, T: Content, const K: usize> LeafSlice<'_, A, T, K> {
     #[allow(dead_code)]
     #[inline]
@@ -330,12 +344,19 @@ mod test {
         let content_points = [
             [0.0f64, 3.0f64, 5.0f64, 0.0f64],
             [0.0f64, 4.0f64, 12.0f64, 0.0f64],
+            [-1.0f64,4.0f64, 12.0f64, 0.0f64],
+            [0.0f64,-3.0f64, 5.0f64, 1.0f64],
         ];
+
+        let dim0: [f64; 4] = [content_points[0][0], content_points[1][0], content_points[2][0], content_points[3][0]];
+        let dim1: [f64; 4] = [content_points[0][1], content_points[1][1], content_points[2][1], content_points[3][1]];
+        let dim2: [f64; 4] = [content_points[0][2], content_points[1][2], content_points[2][2], content_points[3][2]];
+        let dim3: [f64; 4] = [content_points[0][3], content_points[1][3], content_points[2][3], content_points[3][3]];
 
         let content_items = [1u32, 2u32, 3u32, 4u32];
 
         let slice = LeafFixedSlice {
-            content_points: [&content_points[0], &content_points[1]],
+            content_points: [&dim0, &dim1, &dim2, &dim3],
             content_items: &content_items,
         };
 
@@ -355,6 +376,6 @@ mod test {
         assert_eq!(best_dist, 0f64);
         assert_eq!(best_item, 1u32);
         assert_eq!(best_point, content_points[0]);
-	
+        
     }
 }

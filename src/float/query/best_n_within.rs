@@ -93,7 +93,7 @@ mod tests {
 	const K: usize = 2;
 	const B: usize = 4;
 	let unit: [AX; K] = [AX::one(); K];
-        let mut tree: KdTree<AX, i32, 2, 4, u32> = KdTree::new();
+        let mut tree: KdTree<AX, i32, K, B, u32> = KdTree::new();
 
         let content_to_add = [
             ([9f64, 0f64], 9),
@@ -169,7 +169,7 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 2;
 	const B: usize = 32;
-	const unit: [AX; K] = [1 as AX; K];
+	let unit: [AX; K] = [AX::one(); K];
         let max_qty = 2;
 
         let content_to_add: Vec<([AX; K], i32)> = (0..TREE_SIZE)

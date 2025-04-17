@@ -158,7 +158,7 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 4;
 	const B: usize = 32;
-	const unit: [AX; K] = [1 as AX; K];
+	let unit: [AX; K] = [AX::one(); K];
 
         let content_to_add: Vec<([AX; K], u32)> = (0..TREE_SIZE)
             .map(|_| rand::random::<([AX; K], u32)>())

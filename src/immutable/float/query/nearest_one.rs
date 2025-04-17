@@ -241,7 +241,7 @@ mod tests {
         const NUM_QUERIES: usize = 1000;
 	const K: usize = 4;
 	const B: usize = 256;
-	const unit: [f32; K] = [1_f32; K];
+	let unit: [f32; K] = [f32::one(); K];
 
         let content_to_add: Vec<[f32; K]> = (0..TREE_SIZE).map(|_| rng.gen::<[f32; K]>()).collect();
 

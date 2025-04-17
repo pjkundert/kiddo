@@ -135,7 +135,7 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 4;
 	const B: usize = 4;
-	const unit: [Fxd; K] = [Fxd::ONE; K];
+	let unit: [Fxd; K] = [Fxd::one(); K];
 
         let content_to_add: Vec<([Fxd; K], u32)> = (0..TREE_SIZE)
             .map(|_| rand_data_fixed_u16_entry::<U14, u32, K>())

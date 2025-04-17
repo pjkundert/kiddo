@@ -189,7 +189,7 @@ mod tests {
 	const B: usize = 4;
 	let unit: [f64; K] = [f64::one(); K];
 
-        let content_to_add: [[f64; 4]; 16] = [
+        let content_to_add: [[f64; K]; 16] = [
             [0.9f64, 0.0f64, 0.9f64, 0.0f64],
             [0.4f64, 0.5f64, 0.4f64, 0.51f64],
             [0.12f64, 0.3f64, 0.12f64, 0.3f64],
@@ -208,7 +208,7 @@ mod tests {
             [0.11f64, 0.2f64, 0.11f64, 0.2f64],
         ];
 
-        let tree: ImmutableKdTree<f64, u32, 4, 4> =
+        let tree: ImmutableKdTree<f64, u32, K, B> =
             ImmutableKdTree::new_from_slice(&content_to_add);
 
         assert_eq!(tree.size(), 16);
