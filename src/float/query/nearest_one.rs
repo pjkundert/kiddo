@@ -85,6 +85,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::float::distance::Manhattan;
+    use crate::float::distance::SquaredEuclidean;
     use crate::float::kdtree::{Axis, KdTree};
     use crate::neighbour::Neighbour;
     use crate::traits::DistanceMetric;
@@ -92,7 +93,9 @@ mod tests {
     use num_traits::One;
 
     type AX = f32;
-
+    //type Metric = Manhattan;
+    type Metric = SquaredEuclidean;
+	
     #[test]
     fn can_query_nearest_one_item() {
 	const K: usize = 4;
@@ -128,12 +131,13 @@ mod tests {
         let query_point = [0.78f32, 0.55f32, 0.78f32, 0.55f32];
 
         let expected = Neighbour {
-            distance: 0.819_999_93,
+            // distance: 0.819_999_93, // Manhattan
+	    distance:0.175_699_96, // SquaredEuclidean
             item: 5,
             point: [0.5f32, 0.4f32, 0.5f32, 0.44f32],
         };
 
-        let result = tree.nearest_one::<Manhattan>(&query_point);
+        let result = tree.nearest_one::<Metric>(&query_point);
         assert_eq!(result.distance, expected.distance);
 
         let mut rng = rand::thread_rng();
@@ -146,7 +150,7 @@ mod tests {
             ];
             let expected = linear_search(&content_to_add, &query_point, &unit);
 
-            let result = tree.nearest_one::<Manhattan>(&query_point);
+            let result = tree.nearest_one::<Metric>(&query_point);
 
             assert_eq!(result.distance, expected.distance);
         }
@@ -177,7 +181,7 @@ mod tests {
         for query_point in query_points {
             let expected = linear_search(&content_to_add, &query_point, &unit);
 
-            let result = tree.nearest_one::<Manhattan>(&query_point);
+            let result = tree.nearest_one::<Metric>(&query_point);
 
             assert_eq!(result.distance, expected.distance);
             assert_eq!(result.item, expected.item);
@@ -194,7 +198,7 @@ mod tests {
 	let mut best_point = [A::zero(); K];
 
         for &(p, item) in content {
-            let dist = Manhattan::dist(query_point, &p, &scale);
+            let dist = Metric::dist(query_point, &p, &scale);
             if dist < best_dist {
                 best_item = item;
                 best_dist = dist;

@@ -144,7 +144,6 @@ mod tests {
                 .collect();
 
             assert_eq!(result, expected);
-            println!("{}", _i);
         }
     }
 

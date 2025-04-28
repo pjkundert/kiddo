@@ -109,7 +109,7 @@ mod tests {
         let expected = NearestNeighbour::new(
             0.81999993,
             13,
-            [0.15f32, 0.6f32, 0.15f32, 0.6f32],
+            [0.5f32, 0.4f32, 0.5f32, 0.44f32],
         );
 
         let result = tree.approx_nearest_one::<Manhattan>(&query_point);

@@ -182,12 +182,7 @@ where
         A::results_for_remainder::<D, _, _, NearestNeighbour<A, T, K>, CHUNK_SIZE>(remain_points, remain_items, query, scale, is_nearer, &mut nearest);
 
         match nearest {
-            //Some(nnp) => (*best_dist, *best_item, *best_point) = nnp,
-            Some(nnp) => {
-		*best_dist = nnp.0.distance;
-		*best_item = nnp.0.item;
-		*best_point = nnp.0.point;
-	    },
+            Some(nnp) => (*best_dist, *best_item, *best_point) = nnp.into(),
             None => {},
         }
     }
@@ -336,16 +331,16 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::float_leaf_slice::leaf_slice::LeafFixedSlice;
+    use crate::float_leaf_slice::leaf_slice::LeafSlice;
     use crate::SquaredEuclidean;
 
     #[test]
     fn leaf_fixed_slice_nearest_one_works() {
         let content_points = [
-            [0.0f64, 3.0f64, 5.0f64, 0.0f64],
-            [0.0f64, 4.0f64, 12.0f64, 0.0f64],
-            [-1.0f64,4.0f64, 12.0f64, 0.0f64],
-            [0.0f64,-3.0f64, 5.0f64, 1.0f64],
+            [  0.0f64,  3.0f64,  5.0f64,  0.0f64],
+            [  0.0f64,  4.0f64, 12.0f64,  0.0f64],
+            [ -1.0f64,  4.0f64, 12.0f64,  0.0f64],
+            [  0.0f64, -3.0f64,  5.0f64,  1.0f64],
         ];
 
         let dim0: [f64; 4] = [content_points[0][0], content_points[1][0], content_points[2][0], content_points[3][0]];
@@ -355,7 +350,7 @@ mod test {
 
         let content_items = [1u32, 2u32, 3u32, 4u32];
 
-        let slice = LeafFixedSlice {
+        let slice = LeafSlice {
             content_points: [&dim0, &dim1, &dim2, &dim3],
             content_items: &content_items,
         };
@@ -373,9 +368,6 @@ mod test {
 	    &mut best_point
 	);
 
-        assert_eq!(best_dist, 0f64);
-        assert_eq!(best_item, 1u32);
-        assert_eq!(best_point, content_points[0]);
-        
+        assert_eq!((best_dist, best_item, best_point), (34f64, 1u32, content_points[0]));
     }
 }

@@ -51,6 +51,7 @@ performing a comparison of the elements using < (ie, [`std::cmp::Ordering::is_lt
 #[cfg(test)]
 mod tests {
     use crate::neighbour::{BestNeighbour, Neighbour};
+    //use crate::fixed::distance::SquaredEuclidean;
     use crate::fixed::distance::Manhattan;
     use crate::fixed::kdtree::{Axis, KdTree};
     use crate::test_utils::{rand_data_fixed_u16_entry, rand_data_fixed_u16_point};
@@ -61,6 +62,8 @@ mod tests {
     use rand::Rng;
 
     type Fxd = FixedU16<U14>;
+    //type Metric = SquaredEuclidean;
+    type Metric = Manhattan;
 
     fn n(num: f32) -> Fxd {
         Fxd::from_num(num)
@@ -131,7 +134,7 @@ mod tests {
         ];
 
         let result: Vec<_> = tree
-            .best_n_within::<Manhattan>(&query, radius, max_qty)
+            .best_n_within::<Metric>(&query, radius, max_qty)
             .collect();
         assert_eq!(result, expected);
 
@@ -144,12 +147,12 @@ mod tests {
             let radius = n(0.1f32);
             let expected = linear_search(&content_to_add, &query, &unit, radius, max_qty);
 
-            let result: Vec<_> = tree
-                .best_n_within::<Manhattan>(&query, radius, max_qty)
+            let mut result: Vec<_> = tree
+                .best_n_within::<Metric>(&query, radius, max_qty)
                 .collect();
 
-            //result.sort_unstable(); // best_n_within uses an ordered structure
-            assert_eq!(result, expected);
+            result.sort_by(|a, b| b.item.cmp(&a.item));
+            assert_eq!(result, expected, "Test failed at index {} with query [{}, {}]", _i, query[0], query[1]);
         }
     }
 
@@ -158,6 +161,7 @@ mod tests {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
         let radius: Fxd = n(0.6);
+        let unit = [Fxd::one(); 4];
         let max_qty = 5;
 
         let content_to_add: Vec<([Fxd; 4], u32)> = (0..TREE_SIZE)
@@ -175,15 +179,14 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let unit = [Fxd::one(); 4];
             let expected = linear_search(&content_to_add, &query_point, &unit, radius, max_qty);
 
-            let result: Vec<_> = tree
-                .best_n_within::<Manhattan>(&query_point, radius, max_qty)
+            let mut result: Vec<_> = tree
+                .best_n_within::<Metric>(&query_point, radius, max_qty)
                 .collect();
 
-            //result.sort_unstable(); // best_n_within uses an ordered structure
-            assert_eq!(result, expected);
+            result.sort_by(|a, b| b.item.cmp(&a.item));
+            assert_eq!(result, expected, "Test failed with query point {:?}, radius {:?}", query_point, radius);
         }
     }
 
@@ -197,7 +200,7 @@ mod tests {
         let mut best_items = Vec::with_capacity(max_qty);
 
         for &(p, item) in content {
-            let distance = Manhattan::dist(query, &p, scale);
+            let distance = Metric::dist(query, &p, scale);
             if distance <= radius {
                 if best_items.len() < max_qty {
                     best_items.push(BestNeighbour::new( distance, item, p.clone() ));
@@ -208,7 +211,8 @@ mod tests {
             }
             best_items.sort_unstable();
         }
-
+	best_items.reverse();
+	
         best_items.iter().map(|nn| nn.0).collect()
     }
 }

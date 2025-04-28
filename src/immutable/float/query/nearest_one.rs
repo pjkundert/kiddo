@@ -193,8 +193,8 @@ mod tests {
             ];
             let expected = linear_search(&content_to_add, &query_point, &unit);
 
-            // println!("query #{:?}: {:?}", _i, &query_point);
             let result = tree.nearest_one::<SquaredEuclidean>(&query_point);
+            println!("query #{:?}: {:?}, expected {:?}, found: {:?}", _i, &query_point, expected, result);
 
             assert_eq!(result.0.distance, expected.0.distance);
         }

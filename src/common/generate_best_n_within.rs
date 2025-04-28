@@ -132,9 +132,9 @@ macro_rules! generate_best_n_within {
             .content_points
             .iter()
             .take(leaf_node.size.az::<usize>())
-            .map(|entry| (D::dist(query, entry, scale),entry))
+            .map(|entry| (D::dist(query, entry, scale), entry))
             .enumerate()
-            .filter(|(_, (distance,_entry))| *distance <= radius)
+            .filter(|(_, (distance, _entry))| *distance <= radius)
             .for_each(|(idx, (distance, entry))| {
                 Self::get_item_and_add_if_good(max_qty, best_items, leaf_node, idx, distance, entry)
             });

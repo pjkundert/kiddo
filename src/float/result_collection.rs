@@ -48,8 +48,8 @@ where
     }
 
     fn add(&mut self, entry: N) {
-        let k = self.capacity();
-        if self.len() < k {
+	let cap = self.capacity();
+        if cap == 0 || self.len() < cap {
             self.push(entry);
         } else {
             let mut max_heap_value = self.peek_mut().unwrap();
@@ -145,8 +145,8 @@ where
     }
 
     fn add(&mut self, entry: N) {
-        let len = self.len();
-        if len < self.capacity() {
+	let cap = self.capacity();
+        if cap == 0 || self.len() < cap {
             self.insert(entry);
         } else if entry < *self.last().unwrap() {
             self.pop();

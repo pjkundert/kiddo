@@ -55,6 +55,7 @@ The nearest_one_point version also returns the coordinates of the nearest point.
 #[cfg(test)]
 mod tests {
     use crate::fixed::distance::Manhattan;
+    use crate::fixed::distance::SquaredEuclidean;
     use crate::fixed::kdtree::{Axis, KdTree};
     use crate::neighbour::Neighbour;
     use crate::test_utils::{rand_data_fixed_u16_entry, rand_data_fixed_u16_point};
@@ -65,6 +66,8 @@ mod tests {
     use rand::Rng;
 
     type Fxd = FixedU16<U14>;
+    //type Metric = Manhattan;
+    type Metric = SquaredEuclidean;
 
     fn n(num: f32) -> Fxd {
         Fxd::from_num(num)
@@ -104,13 +107,18 @@ mod tests {
         assert_eq!(tree.size(), 16);
 
         let query_point = [n(0.78f32), n(0.55f32), n(0.78f32), n(0.55f32)];
-        let expected = Neighbour {
-            distance: n(0.86),
-            item: 7,
-	    point: [n(0.7f32), n(0.2f32), n(0.7f32), n(0.2f32)],
+        // let expected = Neighbour { // Manhattan
+        //     distance: n(0.86),
+        //     item: 7,
+	//     point: [n(0.7f32), n(0.2f32), n(0.7f32), n(0.2f32)],
+        // };
+        let expected = Neighbour { // SquaredEuclidean
+            distance: n(0.1898),
+            item: 6,
+	    point: [n(0.6f32), n(0.3f32), n(0.6f32), n(0.3f32)],
         };
 
-        let result = tree.nearest_one::<Manhattan>(&query_point);
+        let result = tree.nearest_one::<Metric>(&query_point);
         assert_eq!(result, expected);
 
         let mut rng = rand::thread_rng();
@@ -123,7 +131,7 @@ mod tests {
             ];
             let expected = linear_search(&content_to_add, &query_point, &unit);
 
-            let result = tree.nearest_one::<Manhattan>(&query_point);
+            let result = tree.nearest_one::<Metric>(&query_point);
 
             assert_eq!(result.distance, expected.distance);
         }
@@ -154,7 +162,7 @@ mod tests {
         for query_point in query_points {
             let expected = linear_search(&content_to_add, &query_point, &unit);
 
-            let result = tree.nearest_one::<Manhattan>(&query_point);
+            let result = tree.nearest_one::<Metric>(&query_point);
 
             assert_eq!(result.distance, expected.distance);
         }
@@ -170,7 +178,7 @@ mod tests {
 	let mut best_point = [A::default(); K];
 
         for &(p, item) in content {
-            let dist = Manhattan::dist(query_point, &p, &scale);
+            let dist = Metric::dist(query_point, &p, &scale);
             if dist < best_dist {
                 best_item = item;
                 best_dist = dist;
