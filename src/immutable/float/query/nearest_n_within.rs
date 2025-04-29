@@ -90,7 +90,6 @@ mod tests {
     use rand::Rng;
     use std::cmp::Ordering;
     use std::num::NonZero;
-    use num_traits::One;
 
     type AX = f32;
 
@@ -98,7 +97,6 @@ mod tests {
     fn can_query_items_within_radius() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [AX; K] = [AX::one(); K];
 
         let content_to_add: [[AX; K]; 16] = [
             [0.9f32, 0.0f32, 0.9f32, 0.0f32],
@@ -128,7 +126,7 @@ mod tests {
         let radius = 0.2;
         let max_qty = NonZero::new(3).unwrap();
 
-        let expected = linear_search(&content_to_add, &query_point, &unit, radius);
+        let expected = linear_search(&content_to_add, &query_point, radius, None);
 
         let mut result: Vec<_> = tree
             .nearest_n_within::<SquaredEuclidean>(&query_point, radius, max_qty, true)
@@ -149,7 +147,7 @@ mod tests {
             let radius: f32 = 2.0;
             let max_qty = NonZero::new(3).unwrap();
 
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius)
+            let expected = linear_search(&content_to_add, &query_point, radius, None)
                 .into_iter()
                 .take(max_qty.into())
                 .collect::<Vec<_>>();
@@ -172,7 +170,6 @@ mod tests {
         const RADIUS: f32 = 0.2;
 	const K: usize = 4;
 	const B: usize = 32;
-	let unit: [f32; K] = [f32::one(); K];
 
         let max_qty: NonZero<usize> = NonZero::new(3).unwrap();
 
@@ -188,7 +185,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, RADIUS)
+            let expected = linear_search(&content_to_add, &query_point, RADIUS, None)
                 .into_iter()
                 .take(max_qty.into())
                 .collect::<Vec<_>>();
@@ -208,8 +205,8 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[[A; K]],
         query_point: &[A; K],
-        scale: &[A; K],
         radius: A,
+        scale: Option<&[A; K]>,
     ) -> Vec<(A, u32)> {
         let mut matching_items = vec![];
 

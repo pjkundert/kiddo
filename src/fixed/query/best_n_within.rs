@@ -58,7 +58,6 @@ mod tests {
     use crate::traits::DistanceMetric;
     use fixed::types::extra::U14;
     use fixed::FixedU16;
-    use num_traits::One;
     use rand::Rng;
 
     type Fxd = FixedU16<U14>;
@@ -73,7 +72,6 @@ mod tests {
     fn can_query_best_n_items_within_radius() {
 	const K: usize = 2;
 	const B: usize = 4;
-	let unit = [Fxd::one(); K];
 	
         let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::new();
 
@@ -145,7 +143,7 @@ mod tests {
                 n(rng.gen_range(0.0f32..0.9f32)),
             ];
             let radius = n(0.1f32);
-            let expected = linear_search(&content_to_add, &query, &unit, radius, max_qty);
+            let expected = linear_search(&content_to_add, &query, radius, max_qty, None);
 
             let mut result: Vec<_> = tree
                 .best_n_within::<Metric>(&query, radius, max_qty)
@@ -161,7 +159,6 @@ mod tests {
         const TREE_SIZE: usize = 100_000;
         const NUM_QUERIES: usize = 100;
         let radius: Fxd = n(0.6);
-        let unit = [Fxd::one(); 4];
         let max_qty = 5;
 
         let content_to_add: Vec<([Fxd; 4], u32)> = (0..TREE_SIZE)
@@ -179,7 +176,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius, max_qty);
+            let expected = linear_search(&content_to_add, &query_point, radius, max_qty, None);
 
             let mut result: Vec<_> = tree
                 .best_n_within::<Metric>(&query_point, radius, max_qty)
@@ -193,9 +190,9 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query: &[A; K],
-        scale: &[A; K],
         radius: A,
         max_qty: usize,
+        scale: Option<&[A; K]>,
     ) -> Vec<Neighbour<A, u32, K>> {
         let mut best_items = Vec::with_capacity(max_qty);
 

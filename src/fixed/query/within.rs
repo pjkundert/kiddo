@@ -51,7 +51,6 @@ mod tests {
     use fixed::FixedU16;
     use rand::Rng;
     use std::cmp::Ordering;
-    use num_traits::One;
 
     type Fxd = FixedU16<U14>;
 
@@ -63,7 +62,6 @@ mod tests {
     fn can_query_items_within_radius() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [Fxd; K] = [Fxd::one(); K];
         let mut tree: KdTree<Fxd, u32, K, B, u32> = KdTree::new();
 
         let content_to_add: [([Fxd; K], u32); 16] = [
@@ -94,7 +92,7 @@ mod tests {
         let query_point = [n(0.78f32), n(0.55f32), n(0.78f32), n(0.55f32)];
 
         let radius = n(0.2);
-        let expected = linear_search(&content_to_add, &query_point, &unit, radius);
+        let expected = linear_search(&content_to_add, &query_point, radius, None);
 
         let mut result: Vec<_> = tree
             .within::<Manhattan>(&query_point, radius)
@@ -113,7 +111,7 @@ mod tests {
                 n(rng.gen_range(0f32..1f32)),
             ];
             let radius = n(0.2);
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius);
+            let expected = linear_search(&content_to_add, &query_point, radius, None);
 
             let mut result: Vec<_> = tree
                 .within::<Manhattan>(&query_point, radius)
@@ -132,7 +130,6 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [Fxd; K] = [Fxd::one(); K];
         let radius: Fxd = n(0.2);
 
         let content_to_add: Vec<([Fxd; K], u32)> = (0..TREE_SIZE)
@@ -150,7 +147,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius);
+            let expected = linear_search(&content_to_add, &query_point, radius, None);
 
             let result: Vec<_> = tree
                 .within::<Manhattan>(&query_point, radius)
@@ -164,8 +161,8 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
-        scale: &[A; K],
         radius: A,
+        scale: Option<&[A; K]>,
     ) -> Vec<(A, u32)> {
         let mut matching_items = vec![];
 

@@ -82,7 +82,6 @@ mod tests {
     use rand::Rng;
     use std::cmp::Ordering;
     use std::num::NonZero;
-    use num_traits::One;
 
     type AX = f32;
 
@@ -90,7 +89,6 @@ mod tests {
     fn can_query_nearest_n_items_within_radius() {
 	const B: usize = 4;
 	const K: usize = 4;
-	let unit: [AX; K] = [AX::one(); K];
         let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::new();
 
         let content_to_add: [([AX; K], u32); 16] = [
@@ -123,7 +121,7 @@ mod tests {
         let radius = 0.2;
         let max_qty = NonZero::new(3).unwrap();
 
-        let expected = linear_search(&content_to_add, &query_point, &unit, radius)
+        let expected = linear_search(&content_to_add, &query_point, radius, None)
             .into_iter()
             .take(max_qty.get())
             .collect::<Vec<_>>();
@@ -146,7 +144,7 @@ mod tests {
             let radius = 0.2;
             let max_qty = NonZero::new(3).unwrap();
 
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius)
+            let expected = linear_search(&content_to_add, &query_point, radius, None)
                 .into_iter()
                 .take(max_qty.get())
                 .collect::<Vec<_>>();
@@ -165,7 +163,6 @@ mod tests {
     fn can_query_nearest_n_items_within_radius_unsorted() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [AX; K] = [AX::one(); K];
         let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::new();
 
         let content_to_add: [([AX; K], u32); 16] = [
@@ -198,7 +195,7 @@ mod tests {
         let radius = 0.2;
         let max_qty = NonZero::new(3).unwrap();
 
-        let expected = linear_search(&content_to_add, &query_point, &unit, radius)
+        let expected = linear_search(&content_to_add, &query_point, radius, None)
             .into_iter()
             .take(max_qty.get())
             .collect::<Vec<_>>();
@@ -223,7 +220,7 @@ mod tests {
             let radius = 0.2;
             let max_qty = NonZero::new(3).unwrap();
 
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius)
+            let expected = linear_search(&content_to_add, &query_point, radius, None)
                 .into_iter()
                 .take(max_qty.get())
                 .collect::<Vec<_>>();
@@ -296,7 +293,6 @@ mod tests {
         const RADIUS: f32 = 0.2;
 	const B: usize = 32;
 	const K: usize = 4;
-	let unit: [f32; K] = [f32::one(); K];
 
         let max_qty = NonZero::new(3).unwrap();
 
@@ -315,7 +311,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, RADIUS)
+            let expected = linear_search(&content_to_add, &query_point, RADIUS, None)
                 .into_iter()
                 .take(max_qty.get())
                 .collect::<Vec<_>>();
@@ -334,8 +330,8 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
-        scale: &[A; K],
         radius: A,
+        scale: Option<&[A; K]>,
     ) -> Vec<(A, u32)> {
         let mut matching_items = vec![];
 

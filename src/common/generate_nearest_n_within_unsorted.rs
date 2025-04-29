@@ -16,8 +16,7 @@ macro_rules! generate_nearest_n_within_unsorted {
             where
                 D: DistanceMetric<A, K>,
             {
-		let unit = [A::one(); K];
-                self.nearest_n_within_scaled::<D>(query, &unit, dist, max_items, sorted)
+                self.nearest_n_within_scaled::<D>(query, dist, max_items, sorted, None)
 		    .iter()
 		    .map(|nn| nn.0)
 		    .collect()
@@ -27,10 +26,10 @@ macro_rules! generate_nearest_n_within_unsorted {
             pub fn nearest_n_within_scaled<D>(
 		&self,
 		query: &[A; K],
-		scale: &[A; K],
 		dist: A,
 		max_items: std::num::NonZero<usize>,
-		sorted: bool
+		sorted: bool,
+		scale: Option<&[A; K]>,
 	    ) -> Vec<NearestNeighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
@@ -39,14 +38,14 @@ macro_rules! generate_nearest_n_within_unsorted {
 		    // Either sorted, or limited number of results requested; must use an ordered container
                     if max_items <= std::num::NonZero::new(MAX_VEC_RESULT_SIZE).unwrap() {
 			// Small number of results; simple ordered container
-                        let result = self.nearest_n_within_stub::<D, SortedVec<NearestNeighbour<A, T, K>>>(query, scale, dist, max_items.get());
+                        let result = self.nearest_n_within_stub::<D, SortedVec<NearestNeighbour<A, T, K>>>(query, dist, max_items.get(), scale);
 			if sorted {
 			    result.into_sorted_vec()
 			} else {
 			    result.into_vec()
 			}
                     } else {
-                        let result = self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbour<A, T, K>>>(query, scale, dist, max_items.get());
+                        let result = self.nearest_n_within_stub::<D, BinaryHeap<NearestNeighbour<A, T, K>>>(query, dist, max_items.get(), scale);
 			if sorted {
 			    result.into_sorted_vec()
 			} else {
@@ -54,16 +53,16 @@ macro_rules! generate_nearest_n_within_unsorted {
 			}
                     }
                 } else {
-                    self.nearest_n_within_stub::<D, Vec<NearestNeighbour<A, T, K>>>(query, scale, dist, 0).into_vec()
+                    self.nearest_n_within_stub::<D, Vec<NearestNeighbour<A, T, K>>>(query, dist, 0, scale).into_vec()
                 }
             }
 
             fn nearest_n_within_stub<D: DistanceMetric<A, K>, R>(
                 &self,
 		query: &[A; K],
-		scale: &[A; K],
 		dist: A,
 		res_capacity: usize,
+		scale: Option<&[A; K]>,
             ) -> R
 	    where
 		R: ResultCollection<NearestNeighbour<A, T, K>, A, T, K>
@@ -74,8 +73,8 @@ macro_rules! generate_nearest_n_within_unsorted {
                 unsafe {
                     self.nearest_n_within_unsorted_recurse::<D, R>(
                         query,
-			scale,
                         dist,
+			scale,
                         self.root_index,
                         0,
                         &mut matching_items,
@@ -91,8 +90,8 @@ macro_rules! generate_nearest_n_within_unsorted {
             unsafe fn nearest_n_within_unsorted_recurse<D, R>(
                 &self,
                 query: &[A; K],
-                scale: &[A; K],
                 radius: A,
+                scale: Option<&[A; K]>,
                 curr_node_idx: IDX,
                 split_dim: usize,
                 matching_items: &mut R,
@@ -119,8 +118,8 @@ macro_rules! generate_nearest_n_within_unsorted {
 
                     self.nearest_n_within_unsorted_recurse::<D, R>(
                         query,
-			scale,
                         radius,
+			scale,
                         closer_node_idx,
                         next_split_dim,
                         matching_items,
@@ -128,14 +127,14 @@ macro_rules! generate_nearest_n_within_unsorted {
                         rd,
                     );
 
-                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale.map(|s| s[split_dim])));
 
                     if rd <= radius {
                         off[split_dim] = new_off;
                         self.nearest_n_within_unsorted_recurse::<D, R>(
                             query,
-			    scale,
                             radius,
+			    scale,
                             further_node_idx,
                             next_split_dim,
                             matching_items,

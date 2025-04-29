@@ -84,7 +84,6 @@ mod tests {
     //use crate::float::distance::Manhattan;
     use crate::float::kdtree::{Axis, KdTree};
     use crate::traits::DistanceMetric;
-    use num_traits::One;
     use rand::Rng;
 
     type AX = f64;
@@ -95,7 +94,6 @@ mod tests {
     fn can_query_best_n_items_within_radius() {
 	const K: usize = 2;
 	const B: usize = 4;
-	let unit: [AX; K] = [AX::one(); K];
         let mut tree: KdTree<AX, i32, K, B, u32> = KdTree::new();
 
         let content_to_add = [
@@ -157,7 +155,7 @@ mod tests {
                 rng.gen_range(-1000f64..1000f64),
             ];
             let radius = 100000f64;
-            let expected = linear_search(&content_to_add, &query, &unit, radius, max_qty);
+            let expected = linear_search(&content_to_add, &query, radius, max_qty, None);
 
             let mut result: Vec<_> = tree
                 .best_n_within::<Metric>(&query, radius, max_qty)
@@ -173,7 +171,6 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 2;
 	const B: usize = 32;
-	let unit: [AX; K] = [AX::one(); K];
         let radius = 0.005_f64;		// 1% of 316 == ~3.1, or ~9 in a 1% 2 x radius circle
         let max_qty = 10; // 2		// and we'll return the best two
 
@@ -192,7 +189,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius, max_qty);
+            let expected = linear_search(&content_to_add, &query_point, radius, max_qty, None);
 
             let mut result: Vec<_> = tree
                 .best_n_within::<Metric>(&query_point, radius, max_qty)
@@ -205,9 +202,9 @@ mod tests {
     fn linear_search<A: Axis, const K: usize> (
         content: &[([A; K], i32)],
         query: &[A; K],
-        scale: &[A; K],
         radius: A,
         max_qty: usize,
+        scale: Option<&[A; K]>,
     ) -> Vec<Neighbour<A, i32, K>> {
         let mut best_items = Vec::with_capacity(max_qty);
 

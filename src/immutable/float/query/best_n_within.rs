@@ -88,7 +88,6 @@ mod tests {
     use sorted_vec::SortedVec;
     use rand::Rng;
     use std::num::NonZero;
-    use num_traits::One;
 
     type AX = f64;
 
@@ -118,7 +117,6 @@ mod tests {
     fn can_query_best_n_items_within_radius() {
 	const K: usize = 2;
 	const B: usize = 4;
-	let unit: [AX; K] = [AX::one(); K];
 	
         let content_to_add = [
             [9f64, 0f64],
@@ -178,7 +176,7 @@ mod tests {
                 rng.gen_range(-1000f64..1000f64),
             ];
             let radius = 100000f64;
-            let expected = linear_search(&content_to_add, &query, &unit, radius, max_qty.into());
+            let expected = linear_search(&content_to_add, &query, radius, max_qty.into(), None);
             //println!("{}, {}", query[0].to_string(), query[1].to_string());
 
             let result: Vec<_> = tree
@@ -194,7 +192,6 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 2;
 	const B: usize = 32;
-	let unit: [AX; K] = [AX::one(); K];
         let max_qty = NonZero::new(2).unwrap();
 
         let content_to_add: Vec<[AX; K]> =
@@ -211,7 +208,7 @@ mod tests {
 	// radius is more than sufficient to select *all* of the content
         for query_point in query_points {
             let radius = 100000f64;
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius, max_qty.into());
+            let expected = linear_search(&content_to_add, &query_point, radius, max_qty.into(), None);
 
             let result: Vec<_> = tree
                 .best_n_within::<SquaredEuclidean>(&query_point, radius, max_qty)
@@ -223,9 +220,9 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[[A; K]],
         query: &[A; K],
-        scale: &[A; K],
         radius: A,
         max_qty: usize,
+        scale: Option<&[A; K]>,
     ) -> Vec<BestNeighbour<A, i32, K>> {
 	// If max_qty is less than the length of content, an ordered container is required
         let mut best_items = SortedVec::with_capacity(max_qty);

@@ -79,13 +79,11 @@ mod tests {
     use crate::neighbour::{NearestNeighbour, Neighbour};
     use crate::traits::DistanceMetric;
     use rand::{Rng, SeedableRng};
-    use num_traits::One;
 
     #[test]
     fn can_query_nearest_one_item_f64() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [f64; K] = [f64::one(); K];
 
         let content_to_add: [[f64; K]; 16] = [
             [0.9f64, 0.0f64, 0.9f64, 0.0f64],
@@ -132,7 +130,7 @@ mod tests {
                 rng.gen_range(0f64..1f64),
                 rng.gen_range(0f64..1f64),
             ];
-            let expected = linear_search(&content_to_add, &query_point, &unit);
+            let expected = linear_search(&content_to_add, &query_point, None);
 
             // println!("query #{:?}: {:?}", _i, &query_point);
             let result = tree.nearest_one::<SquaredEuclidean>(&query_point);
@@ -146,7 +144,6 @@ mod tests {
     fn can_query_nearest_one_item_f32() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [f32; K] = [f32::one(); K];
 
         let content_to_add: [[f32; K]; 16] = [
             [0.9f32, 0.0f32, 0.9f32, 0.0f32],
@@ -191,7 +188,7 @@ mod tests {
                 rng.gen_range(0f32..1f32),
                 rng.gen_range(0f32..1f32),
             ];
-            let expected = linear_search(&content_to_add, &query_point, &unit);
+            let expected = linear_search(&content_to_add, &query_point, None);
 
             let result = tree.nearest_one::<SquaredEuclidean>(&query_point);
             println!("query #{:?}: {:?}, expected {:?}, found: {:?}", _i, &query_point, expected, result);
@@ -204,7 +201,6 @@ mod tests {
     fn can_query_nearest_one_item_large_scale_f64() {
 	const K: usize = 4;
 	const B: usize = 256;
-	let unit: [f64; K] = [f64::one(); K];
 
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(3);
 
@@ -221,7 +217,7 @@ mod tests {
         let query_points: Vec<[f64; K]> = (0..NUM_QUERIES).map(|_| rng.gen::<[f64; K]>()).collect();
 
         for query_point in query_points.iter() {
-            let expected = linear_search(&content_to_add, query_point, &unit);
+            let expected = linear_search(&content_to_add, query_point, None);
 
             // println!("query #{:?}", _i);
             let result = tree.nearest_one::<SquaredEuclidean>(query_point);
@@ -241,7 +237,6 @@ mod tests {
         const NUM_QUERIES: usize = 1000;
 	const K: usize = 4;
 	const B: usize = 256;
-	let unit: [f32; K] = [f32::one(); K];
 
         let content_to_add: Vec<[f32; K]> = (0..TREE_SIZE).map(|_| rng.gen::<[f32; K]>()).collect();
 
@@ -255,7 +250,7 @@ mod tests {
             .collect();
 
         for query_point in query_points.iter() {
-            let expected = linear_search(&content_to_add, query_point, &unit);
+            let expected = linear_search(&content_to_add, query_point, None);
 
             let result = tree.nearest_one::<SquaredEuclidean>(query_point);
 
@@ -266,15 +261,15 @@ mod tests {
 
     fn linear_search<A: Axis, const K: usize>(
         content: &[[A; K]],
-        query_point: &[A; K],
-        scale: &[A; K],
+        query: &[A; K],
+        scale: Option<&[A; K]>,
     ) -> NearestNeighbour<A, usize, K> {
         let mut best_dist: A = A::infinity();
         let mut best_item: usize = usize::MAX;
 	let mut best_point = [A::default(); K];
 
         for (idx, p) in content.iter().enumerate() {
-            let dist = SquaredEuclidean::dist(query_point, p, scale);
+            let dist = SquaredEuclidean::dist(query, p, scale);
             if dist < best_dist {
                 best_item = idx;
                 best_dist = dist;

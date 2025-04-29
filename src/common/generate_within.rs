@@ -9,17 +9,16 @@ macro_rules! generate_within {
             where
                 D: DistanceMetric<A, K>,
             {
-		let unit = [A::one(); K];
-                self.within_scaled::<D>(query, &unit, dist).iter().map(|nn| nn.0).collect()
+                self.within_scaled::<D>(query, dist, None).iter().map(|nn| nn.0).collect()
 
             }
 
             #[inline]
-            pub fn within_scaled<D>(&self, query: &[A; K], scale: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T, K>>
+            pub fn within_scaled<D>(&self, query: &[A; K], dist: A, scale: Option<&[A; K]>) -> Vec<NearestNeighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
-                let mut matching_items = self.within_unsorted_scaled::<D>(query, scale, dist);
+                let mut matching_items = self.within_unsorted_scaled::<D>(query, dist, scale);
                 matching_items.sort();
                 matching_items
             }

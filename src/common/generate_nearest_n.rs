@@ -9,12 +9,11 @@ macro_rules! generate_nearest_n {
     where
         D: DistanceMetric<A, K>,
     {
-        let unit = [A::one(); K];
-        self.nearest_n_scaled::<D>(query, &unit, qty).iter().map(|nn| nn.0).collect()
+        self.nearest_n_scaled::<D>(query, qty, None).iter().map(|nn| nn.0).collect()
     }
 
     #[inline]
-    pub fn nearest_n_scaled<D>(&self, query: &[A; K], scale: &[A; K], qty: usize) -> Vec<NearestNeighbour<A, T, K>>
+    pub fn nearest_n_scaled<D>(&self, query: &[A; K], qty: usize, scale: Option<&[A; K]>) -> Vec<NearestNeighbour<A, T, K>>
     where
         D: DistanceMetric<A, K>,
     {
@@ -40,7 +39,7 @@ macro_rules! generate_nearest_n {
     unsafe fn nearest_n_recurse<D>(
         &self,
         query: &[A; K],
-        scale: &[A; K],
+        scale: Option<&[A; K]>,
         curr_node_idx: IDX,
         split_dim: usize,
         results: &mut BinaryHeap<NearestNeighbour<A, T, K>>,
@@ -74,7 +73,7 @@ macro_rules! generate_nearest_n {
                 rd,
             );
 
-            rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+            rd = D::accumulate(rd, D::dist1(new_off, old_off, scale.map(|s| s[split_dim])));
 
             if Self::dist_belongs_in_heap(rd, results) {
                 off[split_dim] = new_off;

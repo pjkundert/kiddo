@@ -77,7 +77,6 @@ mod tests {
     use crate::traits::DistanceMetric;
     use rand::Rng;
     use std::cmp::Ordering;
-    use num_traits::One;
 
     type AX = f32;
 
@@ -85,7 +84,6 @@ mod tests {
     fn can_query_items_within_radius() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [AX; K] = [AX::one(); K];
 
         let content_to_add: [[AX; K]; 16] = [
             [0.9f32, 0.0f32, 0.9f32, 0.0f32],
@@ -113,7 +111,7 @@ mod tests {
         let query_point = [0.78f32, 0.55f32, 0.78f32, 0.55f32];
 
         let radius = 0.2;
-        let expected = linear_search(&content_to_add, &query_point, &unit, radius);
+        let expected = linear_search(&content_to_add, &query_point, radius, None);
 
         let mut result: Vec<_> = tree
             .within::<Manhattan>(&query_point, radius)
@@ -132,7 +130,7 @@ mod tests {
                 rng.gen_range(0f32..1f32),
             ];
             let radius: f32 = 2.0;
-            let expected = linear_search(&content_to_add, &query_point, &unit, radius);
+            let expected = linear_search(&content_to_add, &query_point, radius, None);
 
             let mut result: Vec<_> = tree
                 .within::<Manhattan>(&query_point, radius)
@@ -153,7 +151,6 @@ mod tests {
 
 	const K: usize = 4;
 	const B: usize = 32;
-	let unit: [f32; K] = [f32::one(); K];
 
         let content_to_add: Vec<[f32; K]> =
             (0..TREE_SIZE).map(|_| rand::random::<[f32; K]>()).collect();
@@ -167,7 +164,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, RADIUS);
+            let expected = linear_search(&content_to_add, &query_point, RADIUS, None);
 
             let mut result: Vec<_> = tree
                 .within::<Manhattan>(&query_point, RADIUS)
@@ -184,8 +181,8 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[[A; K]],
         query_point: &[A; K],
-        scale: &[A; K],
         radius: A,
+        scale: Option<&[A; K]>,
     ) -> Vec<(A, u32)> {
         let mut matching_items = vec![];
 

@@ -118,7 +118,7 @@ pub trait DistanceMetric<A, const K: usize> {
 
     /// Returns the distance between two K-d points, as measured by a particular distance metric.
     /// Default is to simply accumulate the K distance metrics.
-    fn dist(a: &[A; K], b: &[A; K], scale: &[A; K]) -> A;
+    fn dist(a: &[A; K], b: &[A; K], scale: Option<&[A; K]>) -> A;
 
     /// Returns the distance between two points along a single axis, as measured by a particular
     /// distance metric.  Default is a simple absolute (ie. Manhattan) distance.
@@ -134,7 +134,7 @@ pub trait DistanceMetric<A, const K: usize> {
     /// could ignore sign, like squared Euclidean.  However, the automatic NaN handling may be worth
     /// the investment...  For fixed types that do not saturate to +/- inf, using .saturating_dist
     /// is the appropriate choice.
-    fn dist1(a: A, b: A, scale: A) -> A;
+    fn dist1(a: A, b: A, scale: Option<A>) -> A;
 }
 
 

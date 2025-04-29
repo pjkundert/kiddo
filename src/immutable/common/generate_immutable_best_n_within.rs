@@ -14,17 +14,16 @@ macro_rules! generate_immutable_best_n_within {
 	    where
 		D: DistanceMetric<A, K>,
 	    {
-		let unit = [A::one(); K];
-		self.best_n_within_scaled::<D>(query, &unit, dist, max_qty)
+		self.best_n_within_scaled::<D>(query, dist, max_qty, None)
 	    }
 
             #[inline]
             pub fn best_n_within_scaled<D>(
                 &self,
                 query: &[A; K],
-                scale: &[A; K],
                 dist: A,
                 max_qty: NonZero<usize>,
+                scale: Option<&[A; K]>,
             ) -> impl Iterator<Item = BestNeighbour<A, T, K>>
             where
                 A: LeafSliceFloatChunk<T, K>,
@@ -42,9 +41,9 @@ macro_rules! generate_immutable_best_n_within {
                 #[cfg(not(feature = "modified_van_emde_boas"))]
                 self.best_n_within_recurse::<D>(
                     query,
-		    &scale,
                     dist,
                     max_qty.into(),
+		    scale,
                     initial_stem_idx,
                     0,
                     &mut best_items,
@@ -57,9 +56,9 @@ macro_rules! generate_immutable_best_n_within {
                 #[cfg(feature = "modified_van_emde_boas")]
                 self.best_n_within_recurse::<D>(
                     query,
-		    scale,
                     dist,
                     max_qty.into(),
+		    scale,
                     initial_stem_idx,
                     0,
                     &mut best_items,
@@ -78,9 +77,9 @@ macro_rules! generate_immutable_best_n_within {
             fn best_n_within_recurse<D>(
                 &self,
                 query: &[A; K],
-                scale: &[A; K],
                 radius: A,
                 max_qty: usize,
+                scale: Option<&[A; K]>,
                 stem_idx: usize,
                 split_dim: usize,
                 best_items: &mut BinaryHeap<BestNeighbour<A, T, K>>,
@@ -94,7 +93,7 @@ macro_rules! generate_immutable_best_n_within {
                 D: DistanceMetric<A, K>,
             {
                 if level as isize > self.max_stem_level as isize {
-                    self.search_leaf_for_best_n_within::<D>(query, scale, radius, max_qty, best_items, leaf_idx as usize);
+                    self.search_leaf_for_best_n_within::<D>(query, radius, max_qty, scale, best_items, leaf_idx as usize);
                     return;
                 }
 
@@ -117,9 +116,9 @@ macro_rules! generate_immutable_best_n_within {
 
                 self.best_n_within_recurse::<D>(
                     query,
-                    scale,
                     radius,
                     max_qty,
+                    scale,
                     closer_node_idx,
                     next_split_dim,
                     best_items,
@@ -129,15 +128,15 @@ macro_rules! generate_immutable_best_n_within {
                     closer_leaf_idx,
                 );
 
-                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale.map(|s| s[split_dim])));
 
                 if rd <= radius {
                     off[split_dim] = new_off;
                     self.best_n_within_recurse::<D>(
                         query,
-			scale,
                         radius,
                         max_qty,
+			scale,
                         further_node_idx,
                         next_split_dim,
                         best_items,
@@ -155,9 +154,9 @@ macro_rules! generate_immutable_best_n_within {
             fn best_n_within_recurse<D>(
                 &self,
                 query: &[A; K],
-                scale: &[A; K],
                 radius: A,
                 max_qty: usize,
+                scale: Option<&[A; K]>,
                 stem_idx: u32,
                 split_dim: usize,
                 best_items: &mut BinaryHeap<BestNeighbour<A, T>>,
@@ -175,7 +174,7 @@ macro_rules! generate_immutable_best_n_within {
                 use $crate::modified_van_emde_boas::modified_van_emde_boas_get_child_idx_v2_branchless;
 
                 if level > self.max_stem_level {
-                    self.search_leaf_for_best_n_within::<D>(query, scale, radius, max_qty, best_items, leaf_idx as usize);
+                    self.search_leaf_for_best_n_within::<D>(query, radius, max_qty, scale, best_items, leaf_idx as usize);
                     return;
                 }
 
@@ -200,9 +199,9 @@ macro_rules! generate_immutable_best_n_within {
 
                 self.best_n_within_recurse::<D>(
                     query,
-		    scale,
                     radius,
                     max_qty,
+		    scale,
                     closer_node_idx,
                     next_split_dim,
                     best_items,
@@ -213,15 +212,15 @@ macro_rules! generate_immutable_best_n_within {
                     closer_leaf_idx,
                 );
 
-                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                rd = D::accumulate(rd, D::dist1(new_off, old_off, scale.map(|s| s[split_dim])));
 
                 if rd <= radius {
                     off[split_dim] = new_off;
                     self.best_n_within_recurse::<D>(
                         query,
-			scale,
                         radius,
                         max_qty,
+			scale,
                         further_node_idx,
                         next_split_dim,
                         best_items,
@@ -239,9 +238,9 @@ macro_rules! generate_immutable_best_n_within {
             fn search_leaf_for_best_n_within<D>(
                 &self,
                 query: &[A; K],
-                scale: &[A; K],
                 radius: A,
                 max_qty: usize,
+                scale: Option<&[A; K]>,
                 results: &mut BinaryHeap<BestNeighbour<A, T, K>>,
                 leaf_idx: usize,
             ) where
@@ -251,9 +250,9 @@ macro_rules! generate_immutable_best_n_within {
 
                 leaf_slice.best_n_within::<D, BinaryHeap<BestNeighbour<A, T, K>>>(
                     query,
-		    scale,
                     radius,
                     max_qty,
+		    scale,
                     results,
                 );
             }

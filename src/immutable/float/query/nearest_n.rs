@@ -81,13 +81,11 @@ mod tests {
     use az::{Az, Cast};
     use rand::Rng;
     use std::num::NonZero;
-    use num_traits::One;
 
     #[test]
     fn can_query_nearest_n_item_f32() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [f32; K] = [f32::one(); K];
 
         let content_to_add: [[f32; 4]; 16] = [
             [0.9f32, 0.0f32, 0.9f32, 0.0f32],
@@ -116,7 +114,7 @@ mod tests {
         let query_point = [0.78f32, 0.55f32, 0.78f32, 0.55f32];
         let max_qty = NonZero::new(10).unwrap();
 
-        let expected = linear_search(&content_to_add, &query_point, &unit, max_qty.into());
+        let expected = linear_search(&content_to_add, &query_point, max_qty.into(), None);
         // let expected = vec![(0.17569996, 5), (0.19139998, 13), (0.24420004, 3)];
 
         let result: Vec<_> = tree
@@ -135,7 +133,7 @@ mod tests {
                 rng.gen_range(0f32..1f32),
                 rng.gen_range(0f32..1f32),
             ];
-            let expected = linear_search(&content_to_add, &query_point, &unit, max_qty.into());
+            let expected = linear_search(&content_to_add, &query_point, max_qty.into(), None);
 
             let result: Vec<_> = tree
                 .nearest_n::<SquaredEuclidean>(&query_point, max_qty)
@@ -153,7 +151,6 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 4;
 	const B: usize = 32;
-	let unit: [f32; K] = [f32::one(); K];
 
         let max_qty = NonZero::new(10).unwrap();
 
@@ -170,7 +167,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, max_qty.into());
+            let expected = linear_search(&content_to_add, &query_point, max_qty.into(), None);
 
             let result: Vec<_> = tree
                 .nearest_n::<SquaredEuclidean>(&query_point, max_qty)
@@ -186,7 +183,6 @@ mod tests {
     fn can_query_nearest_n_item_f64() {
 	const K: usize = 4;
 	const B: usize = 4;
-	let unit: [f64; K] = [f64::one(); K];
 
         let content_to_add: [[f64; K]; 16] = [
             [0.9f64, 0.0f64, 0.9f64, 0.0f64],
@@ -238,7 +234,7 @@ mod tests {
                 rng.gen_range(0f64..1f64),
                 rng.gen_range(0f64..1f64),
             ];
-            let expected = linear_search(&content_to_add, &query_point, &unit, max_qty.into());
+            let expected = linear_search(&content_to_add, &query_point, max_qty.into(), None);
 
             let result: Vec<_> = tree
                 .nearest_n::<SquaredEuclidean>(&query_point, max_qty)
@@ -256,7 +252,6 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 4;
 	const B: usize = 32;
-	let unit: [f64; K] = [f64::one(); K];
 
         let max_qty = NonZero::new(10).unwrap();
 
@@ -273,7 +268,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, max_qty.into());
+            let expected = linear_search(&content_to_add, &query_point, max_qty.into(), None);
 
             let result: Vec<_> = tree
                 .nearest_n::<SquaredEuclidean>(&query_point, max_qty)
@@ -288,8 +283,8 @@ mod tests {
     fn linear_search<A: Axis, R, const K: usize>(
         content: &[[A; K]],
         query_point: &[A; K],
-        scale: &[A; K],
         qty: usize,
+        scale: Option<&[A; K]>,
     ) -> Vec<(A, R)>
     where
         usize: Cast<R>,

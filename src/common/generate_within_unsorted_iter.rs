@@ -16,14 +16,13 @@ macro_rules! generate_within_unsorted_iter {
                 // Create the generator directly with its own unit scale array
                 let gen = Gn::new_scoped(move |gen_scope| {
                     // Create all necessary variables inside the generator scope
-                    let unit = [A::one(); K];
                     let mut off = [A::zero(); K];
                     
                     unsafe {
                         self.within_unsorted_iter_recurse::<D>(
                             query,
-                            &unit,
                             dist,
+			    None,
                             self.root_index,
                             0,
                             gen_scope,
@@ -43,8 +42,8 @@ macro_rules! generate_within_unsorted_iter {
             pub fn within_unsorted_iter_scaled<D>(
                 &'a self,
                 query: &'a [A; K],
-                scale: &'a [A; K],
                 dist: A,
+                scale: Option<&'a [A; K]>,
             ) -> impl Iterator<Item = NearestNeighbour<A, T, K>> + 'a
             where
                 D: DistanceMetric<A, K>,
@@ -57,8 +56,8 @@ macro_rules! generate_within_unsorted_iter {
                     unsafe {
                         self.within_unsorted_iter_recurse::<D>(
                             query,
-                            scale,
                             dist,
+                            scale,
                             self.root_index,
                             0,
                             gen_scope,
@@ -78,8 +77,8 @@ macro_rules! generate_within_unsorted_iter {
             unsafe fn within_unsorted_iter_recurse<'scope, D>(
                 &'a self,
                 query: &[A; K],
-                scale: &[A; K],
                 radius: A,
+                scale: Option<&[A; K]>,
                 curr_node_idx: IDX,
                 split_dim: usize,
                 mut gen_scope: Scope<'scope, 'a, (), NearestNeighbour<A, T, K>>,
@@ -106,8 +105,8 @@ macro_rules! generate_within_unsorted_iter {
 
                     gen_scope = self.within_unsorted_iter_recurse::<D>(
                         query,
-                        scale,
                         radius,
+                        scale,
                         closer_node_idx,
                         next_split_dim,
                         gen_scope,
@@ -115,14 +114,14 @@ macro_rules! generate_within_unsorted_iter {
                         rd,
                     );
 
-                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale.map(|s| s[split_dim])));
 
                     if rd <= radius {
                         off[split_dim] = new_off;
                         gen_scope = self.within_unsorted_iter_recurse::<D>(
                             query,
-                            scale,
                             radius,
+                            scale,
                             further_node_idx,
                             next_split_dim,
                             gen_scope,

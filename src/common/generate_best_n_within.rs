@@ -14,17 +14,16 @@ macro_rules! generate_best_n_within {
     where
         D: DistanceMetric<A, K>,
     {
-	let unit = [A::one(); K];
-	self.best_n_within_scaled::<D>(query, &unit, dist, max_qty).map(|nn| nn.0)
+	self.best_n_within_scaled::<D>(query, dist, max_qty, None ).map(|nn| nn.0)
     }
 
     #[inline]
     pub fn best_n_within_scaled<D>(
         &self,
         query: &[A; K],
-	scale: &[A; K],
         dist: A,
         max_qty: usize,
+	scale: Option<&[A; K]>,
     ) -> impl Iterator<Item = BestNeighbour<A, T, K>>
     where
         D: DistanceMetric<A, K>,
@@ -35,9 +34,9 @@ macro_rules! generate_best_n_within {
         unsafe {
             self.best_n_within_recurse::<D>(
                 query,
-                scale,
                 dist,
                 max_qty,
+                scale,
                 self.root_index,
                 0,
                 &mut best_items,
@@ -53,9 +52,9 @@ macro_rules! generate_best_n_within {
     unsafe fn best_n_within_recurse<D>(
         &self,
         query: &[A; K],
-	scale: &[A; K],
         radius: A,
         max_qty: usize,
+	scale: Option<&[A; K]>,
         curr_node_idx: IDX,
         split_dim: usize,
         best_items: &mut BinaryHeap<BestNeighbour<A, T, K>>,
@@ -81,9 +80,9 @@ macro_rules! generate_best_n_within {
 
             self.best_n_within_recurse::<D>(
                 query,
-		scale,
                 radius,
                 max_qty,
+		scale,
                 closer_node_idx,
                 next_split_dim,
                 best_items,
@@ -91,15 +90,15 @@ macro_rules! generate_best_n_within {
                 rd,
             );
 
-            rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+            rd = D::accumulate(rd, D::dist1(new_off, old_off, scale.map(|s| s[split_dim])));
 
             if rd <= radius {
                 off[split_dim] = new_off;
                 self.best_n_within_recurse::<D>(
                     query,
-		    scale,
                     radius,
                     max_qty,
+		    scale,
                     further_node_idx,
                     next_split_dim,
                     best_items,
@@ -113,16 +112,16 @@ macro_rules! generate_best_n_within {
                 .leaves
                 .get_unchecked((curr_node_idx - IDX::leaf_offset()).az::<usize>());
 
-            Self::process_leaf_node::<D>(query, scale, radius, max_qty, best_items, leaf_node);
+            Self::process_leaf_node::<D>(query, radius, max_qty, scale, best_items, leaf_node);
         }
     }
 
     #[inline]
     unsafe fn process_leaf_node<D>(
         query: &[A; K],
-        scale: &[A; K],
         radius: A,
         max_qty: usize,
+        scale: Option<&[A; K]>,
         best_items: &mut BinaryHeap<BestNeighbour<A, T, K>>,
         leaf_node: &$leafnode<A, T, K, B, IDX>,
     ) where

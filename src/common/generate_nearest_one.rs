@@ -9,17 +9,22 @@ macro_rules! generate_nearest_one {
                 where
                     D: DistanceMetric<A, K>,
             {
-                let unit = [A::one(); K];
-                self.nearest_one_scaled::<D>(query, &unit).0
+                self.nearest_one_scaled::<D>(query, None, None).0
             }
 
             #[inline]
-            pub fn nearest_one_scaled<D>(&self, query: &[A; K], scale: &[A; K]) -> NearestNeighbour<A, T, K>
+            pub fn nearest_one_scaled<D>(&self, query: &[A; K], scale: Option<&[A; K]>, stats: Option<&mut (usize, usize, usize)>) -> NearestNeighbour<A, T, K>
                 where
                     D: DistanceMetric<A, K>,
             {
+                #[cfg(feature = "optimize_nearest_one")]
                 let mut off = query.clone();  // The nearest possible point in the "further" dimension
-		let mut stats: (usize, usize, usize) = (0, 0, 0);
+
+                #[cfg(not(feature = "optimize_nearest_one"))]
+                let mut off = [A::zero(); K];
+
+		let mut stats_local: (usize, usize, usize) = (0, 0, 0);
+		let stats: &mut (usize, usize, usize) = stats.unwrap_or(&mut stats_local);
                 let result = unsafe {
                     self.nearest_one_recurse::<D>(
                         query,
@@ -33,11 +38,10 @@ macro_rules! generate_nearest_one {
                         ),
                         &mut off,
                         A::zero(),
-			&mut stats,
+			stats,
                     )
                 };
-		println!("Nearest One scanned {} nodes, {} leaves and {}/{} points; nearest: {:?}",
-			 stats.0, stats.1, stats.2, self.size, result.0);
+		//println!("Nearest One: {:?}: scanned {} nodes, {} leaves and {}/{} points", result.0, stats.0, stats.1, stats.2, self.size);
 
 		result
             }
@@ -46,7 +50,7 @@ macro_rules! generate_nearest_one {
             unsafe fn nearest_one_recurse<D>(
                 &self,
                 query: &[A; K],
-                scale: &[A; K],
+                scale: Option<&[A; K]>,
                 curr_node_idx: IDX,
                 split_dim: usize,
                 mut nearest: NearestNeighbour<A, T, K>,
@@ -90,9 +94,9 @@ macro_rules! generate_nearest_one {
 
 		    // Computes the absolute distance between the query and this axis .split_val The
 		    // off array contains the current absolute distances.  These are un-scaled.
-                    let mut rd = rd;
+                    let mut _rd = rd;
                     let old_off = off[split_dim];
-                    let new_off = query[split_dim].saturating_dist(node.split_val);
+                    let _new_off = query[split_dim].saturating_dist(node.split_val);
 
                     let [closer_node_idx, further_node_idx] =
                         if *query.get_unchecked(split_dim) < node.split_val {
@@ -104,7 +108,11 @@ macro_rules! generate_nearest_one {
 
 		    // On the "closer" side, the offset to the nearest possible point on this axis
 		    // is the query point itself.
-		    off[split_dim] = query[split_dim];
+		    #[cfg(feature = "optimize_nearest_one")]
+		    {
+			off[split_dim] = query[split_dim];
+		    }
+
                     let nearest_neighbour = self.nearest_one_recurse::<D>(
                         query,
                         scale,
@@ -112,10 +120,15 @@ macro_rules! generate_nearest_one {
                         next_split_dim,
                         nearest,
                         off,
-                        rd,
+                        _rd,
 			stats,
                     );
-		    off[split_dim] = old_off;
+
+		    #[cfg(feature = "optimize_nearest_one")]
+		    {
+			off[split_dim] = old_off;
+		    }
+
 		    stats.0 += 1;
 
                     if nearest_neighbour < nearest {
@@ -166,62 +179,67 @@ macro_rules! generate_nearest_one {
 		    // DistanceMetric.  Only if this is less than the current nearest.distance,
 		    // could there possibly be a nearer point there.
 		    
-                    // rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
-		    // // {
-		    // // 	let mut new = off.clone();
-		    // // 	new[split_dim] = new_off;
-		    // // 	println!("rd w/ off[{}] == {:?} vs {:?}: {:?}, vs. dist: {:?}",
-		    // // 		 split_dim, old_off, new_off, rd, D::dist(off, &new, scale));
-		    // // }
+                    #[cfg(not(feature = "optimize_nearest_one"))]
+                    {
+                        _rd = D::accumulate(rd, D::dist1(_new_off, old_off, scale.map(|s| s[split_dim])));
+			// {
+			// 	let mut new = off.clone();
+			// 	new[split_dim] = new_off;
+			// 	println!("_rd w/ off[{}] == {:?} vs {:?}: {:?}, vs. dist: {:?}",
+			// 		 split_dim, old_off, new_off, rd, D::dist(off, &new, scale));
+			// }
 
-                    // if rd <= nearest.0.distance {
-                    //     off[split_dim] = new_off;
-                    //     let result = self.nearest_one_recurse::<D>(
-                    //         query,
-                    //         scale,
-                    //         further_node_idx,
-                    //         next_split_dim,
-                    //         nearest,
-                    //         off,
-                    //         rd,
-		    // 	    stats,
-                    //     );
-		    // 	stats.0 += 1;
-                    //     off[split_dim] = old_off;
+			if _rd <= nearest.0.distance {
+                            off[split_dim] = _new_off;
+                            let result = self.nearest_one_recurse::<D>(
+				query,
+				scale,
+				further_node_idx,
+				next_split_dim,
+				nearest,
+				off,
+				_rd,
+				stats,
+                            );
+			    stats.0 += 1;
+                            off[split_dim] = old_off;
 
-                    //     if result < nearest {
-                    //         nearest = result;
-                    //     }
-                    // }
-
+                            if result < nearest {
+				nearest = result;
+                            }
+			}
+                    }
 
 		    // On the "further" side, the offset to the nearest possible point on this axis
 		    // is the node.split_val.  Using the DistanceMetric, see if this nearest
 		    // possible point in this "further" side is could possibly be nearer than the
 		    // current nearest point.
-                    off[split_dim] = node.split_val;
+                    #[cfg(feature = "optimize_nearest_one")]
+                    {
+                        off[split_dim] = node.split_val;
 
-		    let further_distance = D::dist( query, off, scale );  // The total distance in all axes seems to eliminate too many
-		    // let further_distance = D::accumulate( A::zero(), D::dist1( query[split_dim], node.split_val, scale[split_dim] ));
-                    if further_distance <= nearest.0.distance {
-                        let result = self.nearest_one_recurse::<D>(
-                            query,
-                            scale,
-                            further_node_idx,
-                            next_split_dim,
-                            nearest,
-                            off,
-                            rd,
-			    stats
-			);
-			stats.0 += 1;
+                        let further_distance = D::dist(query, off, scale);  // The total distance in all axes seems to eliminate too many
+                        // let further_distance = D::accumulate(A::zero(), D::dist1(query[split_dim], node.split_val, scale[split_dim]));
+                        if further_distance <= nearest.0.distance {
+                            let result = self.nearest_one_recurse::<D>(
+                                query,
+                                scale,
+                                further_node_idx,
+                                next_split_dim,
+                                nearest,
+                                off,
+                                _rd,
+                                stats
+                            );
+                            stats.0 += 1;
 
-                        if result < nearest {
-                            nearest = result;
+                            if result < nearest {
+				//println!("Found further-node nearer; {:?} vs. {:?}", result, nearest);
+                                nearest = result;
+                            }
                         }
+                        off[split_dim] = old_off;
                     }
-                    off[split_dim] = old_off;
-
                 } else {
                     let leaf_node = self
                         .leaves
@@ -242,7 +260,7 @@ macro_rules! generate_nearest_one {
             #[inline]
             fn search_content_for_nearest<D>(
                 query: &[A; K],
-                scale: &[A; K],
+                scale: Option<&[A; K]>,
                 nearest: &mut NearestNeighbour<A, T, K>,
                 leaf_node: &$leafnode<A, T, K, B, IDX>,
 		stats: &mut (usize, usize, usize),  // nodes, leaves, points

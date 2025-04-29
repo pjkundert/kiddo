@@ -41,20 +41,21 @@ impl<A: Axis, const K: usize> DistanceMetric<A, K> for Manhattan {
     }
 
     #[inline]
-    fn dist(a: &[A; K], b: &[A; K], scale: &[A; K]) -> A {
+    fn dist(a: &[A; K], b: &[A; K], scale: Option<&[A; K]>) -> A {
         let mut result = A::zero();
         for i in 0..K {
-            // Use explicit Manhattan::dist1 to avoid type inference issues
-            let dist = <Self as DistanceMetric<A, K>>::dist1(a[i], b[i], scale[i]);
-            // Use explicit Manhattan::accumulate to avoid type inference issues
+            let dist = <Self as DistanceMetric<A, K>>::dist1(a[i], b[i], scale.map(|s| s[i]));
             result = <Self as DistanceMetric<A, K>>::accumulate(result, dist);
         }
         result
     }
 
     #[inline]
-    fn dist1(a: A, b: A, scale: A) -> A {
-	a.saturating_dist(b).saturating_mul(scale)
+    fn dist1(a: A, b: A, scale: Option<A>) -> A {
+	match scale {
+	    Some(s) => a.saturating_dist(b).saturating_mul(s),
+	    None => a.saturating_dist(b),
+	}
     }
 }
 
@@ -86,24 +87,26 @@ pub struct SquaredEuclidean {}
 impl<A: Axis, const K: usize> DistanceMetric<A, K> for SquaredEuclidean {
     #[inline]
     fn accumulate(acc: A, dist: A) -> A {
-	acc.saturating_add(dist.saturating_mul(dist))  // dist^2
+	acc.saturating_add(dist)
     }
 
     #[inline]
-    fn dist(a: &[A; K], b: &[A; K], scale: &[A; K]) -> A {
+    fn dist(a: &[A; K], b: &[A; K], scale: Option<&[A; K]>) -> A {
         let mut result = A::zero();
         for i in 0..K {
-            // Use explicit Manhattan::dist1 to avoid type inference issues
-            let dist = <Self as DistanceMetric<A, K>>::dist1(a[i], b[i], scale[i]);
-            // Use explicit Manhattan::accumulate to avoid type inference issues
+            let dist = <Self as DistanceMetric<A, K>>::dist1(a[i], b[i],scale.map(|s| s[i]));
             result = <Self as DistanceMetric<A, K>>::accumulate(result, dist);
         }
         result
     }
 
     #[inline]
-    fn dist1(a: A, b: A, scale: A) -> A {
-	a.saturating_dist(b).saturating_mul(scale)
+    fn dist1(a: A, b: A, scale: Option<A>) -> A {
+	let dist = match scale {
+	    Some(s) => a.saturating_dist(b).saturating_mul(s),
+	    None => a.saturating_dist(b),
+	};
+	dist.saturating_mul(dist)  // dist^2
     }
 }
 
@@ -142,19 +145,20 @@ impl<A: Axis, const K: usize> DistanceMetric<A, K> for Rectangular {
     }
 
     #[inline]
-    fn dist(a: &[A; K], b: &[A; K], scale: &[A; K]) -> A {
+    fn dist(a: &[A; K], b: &[A; K], scale: Option<&[A; K]>) -> A {
         let mut result = A::zero();
         for i in 0..K {
-            // Use explicit Manhattan::dist1 to avoid type inference issues
-            let dist = <Self as DistanceMetric<A, K>>::dist1(a[i], b[i], scale[i]);
-            // Use explicit Manhattan::accumulate to avoid type inference issues
+            let dist = <Self as DistanceMetric<A, K>>::dist1(a[i], b[i], scale.map(|s| s[i]));
             result = <Self as DistanceMetric<A, K>>::accumulate(result, dist);
         }
         result
     }
 
     #[inline]
-    fn dist1(a: A, b: A, scale: A) -> A {
-	a.saturating_dist(b).saturating_mul(scale)
+    fn dist1(a: A, b: A, scale: Option<A>) -> A {
+	match scale {
+	    Some(s) => a.saturating_dist(b).saturating_mul(s),
+	    None => a.saturating_dist(b),
+	}
     }
 }

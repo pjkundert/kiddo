@@ -55,7 +55,7 @@ macro_rules! generate_immutable_approx_nearest_one {
 
                 leaf_slice.nearest_one::<D>(
                     query,
-		    &[A::one(); K],
+		    None,
                     &mut best_dist,
                     &mut best_item,
 		    &mut best_point,

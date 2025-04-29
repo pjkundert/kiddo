@@ -9,12 +9,11 @@ macro_rules! generate_within_unsorted {
             where
                 D: DistanceMetric<A, K>,
             {
-                let unit = [A::one(); K];
-		self.within_unsorted_scaled::<D>(query, &unit, dist).iter().map(|nn| nn.0).collect()
+		self.within_unsorted_scaled::<D>(query, dist, None).iter().map(|nn| nn.0).collect()
             }
 
             #[inline]
-            pub fn within_unsorted_scaled<D>(&self, query: &[A; K], scale: &[A; K], dist: A) -> Vec<NearestNeighbour<A, T, K>>
+            pub fn within_unsorted_scaled<D>(&self, query: &[A; K], dist: A, scale: Option<&[A; K]>) -> Vec<NearestNeighbour<A, T, K>>
             where
                 D: DistanceMetric<A, K>,
             {
@@ -24,8 +23,8 @@ macro_rules! generate_within_unsorted {
                 unsafe {
                     self.within_unsorted_recurse::<D>(
                         query,
-                        scale,
                         dist,
+                        scale,
                         self.root_index,
                         0,
                         &mut matching_items,
@@ -41,8 +40,8 @@ macro_rules! generate_within_unsorted {
             unsafe fn within_unsorted_recurse<D>(
                 &self,
                 query: &[A; K],
-                scale: &[A; K],
                 radius: A,
+                scale: Option<&[A; K]>,
                 curr_node_idx: IDX,
                 split_dim: usize,
                 matching_items: &mut Vec<NearestNeighbour<A, T, K>>,
@@ -68,8 +67,8 @@ macro_rules! generate_within_unsorted {
 
                     self.within_unsorted_recurse::<D>(
                         query,
-                        scale,
                         radius,
+                        scale,
                         closer_node_idx,
                         next_split_dim,
                         matching_items,
@@ -77,14 +76,14 @@ macro_rules! generate_within_unsorted {
                         rd,
                     );
 
-                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale[split_dim]));
+                    rd = D::accumulate(rd, D::dist1(new_off, old_off, scale.map(|s| s[split_dim])));
 
                     if rd <= radius {
                         off[split_dim] = new_off;
                         self.within_unsorted_recurse::<D>(
                             query,
-                            scale,
                             radius,
+                            scale,
                             further_node_idx,
                             next_split_dim,
                             matching_items,

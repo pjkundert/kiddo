@@ -119,11 +119,12 @@ optional = true
 
 [features]
 csv = ["dep:csv"]
-default = ["tracing"]
+default = ["tracing", "optimize_nearest_one"]
 modified_van_emde_boas = []
 f16 = ["dep:half"]
 global_allocate = []
 las = ["dep:las"]
+optimize_nearest_one = []
 serde = ["dep:serde", "serde/derive", "dep:serde_derive", "dep:serde_with", "fixed/serde", "aligned-vec/serde"]
 simd = []
 rkyv = ["dep:rkyv"]

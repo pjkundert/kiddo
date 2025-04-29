@@ -74,7 +74,6 @@ mod tests {
     use crate::float::kdtree::{Axis, KdTree};
     use crate::traits::DistanceMetric;
     use rand::Rng;
-    use num_traits::One;
 
     type AX = f32;
 
@@ -82,7 +81,6 @@ mod tests {
     fn can_query_nearest_n_item() {
 	const K: usize = 4;
 	const B: usize = 8;
-	let unit: [AX; K] = [AX::one(); K];
         let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::new();
 
         let content_to_add: [([AX; K], u32); 16] = [
@@ -130,7 +128,7 @@ mod tests {
                 rng.gen_range(0f32..1f32),
                 rng.gen_range(0f32..1f32),
             ];
-            let expected = linear_search(&content_to_add, &query_point, &unit, qty);
+            let expected = linear_search(&content_to_add, &query_point, qty, None);
 
             let result: Vec<_> = tree
                 .nearest_n::<SquaredEuclidean>(&query_point, qty)
@@ -151,7 +149,6 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 4;
 	const B: usize = 32;
-	let unit: [f32; K] = [f32::one(); K];
         const N: usize = 10;
 
         let content_to_add: Vec<([f32; K], u32)> = (0..TREE_SIZE)
@@ -169,7 +166,7 @@ mod tests {
             .collect();
 
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, N);
+            let expected = linear_search(&content_to_add, &query_point, N, None);
 
             let result: Vec<_> = tree
                 .nearest_n::<SquaredEuclidean>(&query_point, N)
@@ -187,8 +184,8 @@ mod tests {
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
-        scale: &[A; K],
         qty: usize,
+        scale: Option<&[A; K]>,
     ) -> Vec<(A, u32)> {
         let mut results = vec![];
 

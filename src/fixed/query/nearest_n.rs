@@ -50,7 +50,6 @@ mod tests {
     use crate::traits::DistanceMetric;
     use fixed::types::extra::U14;
     use fixed::FixedU16;
-    use num_traits::One;
     use rand::Rng;
 
     type Fxd = FixedU16<U14>;
@@ -101,7 +100,6 @@ mod tests {
             .collect();
         assert_eq!(result, expected);
 
-	let unit = [Fxd::one(); K];
         let qty = 10;
         let mut rng = rand::thread_rng();
         for _i in 0..1000 {
@@ -111,7 +109,7 @@ mod tests {
                 n(rng.gen_range(0f32..1f32)),
                 n(rng.gen_range(0f32..1f32)),
             ];
-            let expected = linear_search(&content_to_add, &query_point, &unit, qty);
+            let expected = linear_search(&content_to_add, &query_point, qty, None);
 
             let result: Vec<_> = tree
                 .nearest_n::<Manhattan>(&query_point, qty)
@@ -148,9 +146,8 @@ mod tests {
             .map(|_| rand_data_fixed_u16_point::<U14, K>())
             .collect();
 
-	let unit = [Fxd::one(); K];
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit, N);
+            let expected = linear_search(&content_to_add, &query_point, N, None);
 
             let result: Vec<_> = tree
                 .nearest_n::<Manhattan>(&query_point, N)
@@ -167,14 +164,14 @@ mod tests {
 
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
-        query_point: &[A; K],
-	scale: &[A; K],
+        query: &[A; K],
         qty: usize,
+	scale: Option<&[A; K]>,
     ) -> Vec<(A, u32)> {
         let mut results = vec![];
 
         for &(p, item) in content {
-            let dist = Manhattan::dist(query_point, &p, scale);
+            let dist = Manhattan::dist(query, &p, scale);
             if results.len() < qty {
                 results.push((dist, item));
                 results.sort_by(|(a_dist, _), (b_dist, _)| a_dist.partial_cmp(b_dist).unwrap());

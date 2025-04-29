@@ -84,13 +84,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::float::distance::Manhattan;
+    //use crate::float::distance::Manhattan;
     use crate::float::distance::SquaredEuclidean;
     use crate::float::kdtree::{Axis, KdTree};
     use crate::neighbour::Neighbour;
     use crate::traits::DistanceMetric;
     use rand::Rng;
-    use num_traits::One;
 
     type AX = f32;
     //type Metric = Manhattan;
@@ -100,7 +99,6 @@ mod tests {
     fn can_query_nearest_one_item() {
 	const K: usize = 4;
 	const B: usize = 8;
-	let unit: [AX; K] = [AX::one(); K];
         let mut tree: KdTree<AX, u32, K, B, u32> = KdTree::new();
 
         let content_to_add: [([AX; K], u32); 16] = [
@@ -148,7 +146,7 @@ mod tests {
                 rng.gen_range(0f32..1f32),
                 rng.gen_range(0f32..1f32),
             ];
-            let expected = linear_search(&content_to_add, &query_point, &unit);
+            let expected = linear_search(&content_to_add, &query_point, None);
 
             let result = tree.nearest_one::<Metric>(&query_point);
 
@@ -162,7 +160,6 @@ mod tests {
         const NUM_QUERIES: usize = 100;
 	const K: usize = 4;
 	const B: usize = 32;
-	let unit: [AX; K] = [AX::one(); K];
 
         let content_to_add: Vec<([AX; K], u32)> = (0..TREE_SIZE)
             .map(|_| rand::random::<([AX; K], u32)>())
@@ -178,27 +175,29 @@ mod tests {
             .map(|_| rand::random::<[AX; K]>())
             .collect();
 
+	let mut stats: (usize, usize, usize) = (0, 0, 0);
         for query_point in query_points {
-            let expected = linear_search(&content_to_add, &query_point, &unit);
+            let expected = linear_search(&content_to_add, &query_point, None);
 
-            let result = tree.nearest_one::<Metric>(&query_point);
+            let result = tree.nearest_one_scaled::<Metric>(&query_point, None, Some(&mut stats));
 
-            assert_eq!(result.distance, expected.distance);
-            assert_eq!(result.item, expected.item);
+            assert_eq!(result.0.distance, expected.distance);
+            assert_eq!(result.0.item, expected.item);
         }
+	println!("After {} queries; scanned {} nodes, {} leaves and {} points", NUM_QUERIES, stats.0, stats.1, stats.2);
     }
 
     fn linear_search<A: Axis, const K: usize>(
         content: &[([A; K], u32)],
         query_point: &[A; K],
-	scale: &[A; K],
+	scale: Option<&[A; K]>,
     ) -> Neighbour<A, u32, K> {
         let mut best_dist: A = A::infinity();
         let mut best_item: u32 = u32::MAX;
 	let mut best_point = [A::zero(); K];
 
         for &(p, item) in content {
-            let dist = Metric::dist(query_point, &p, &scale);
+            let dist = Metric::dist(query_point, &p, scale);
             if dist < best_dist {
                 best_item = item;
                 best_dist = dist;
