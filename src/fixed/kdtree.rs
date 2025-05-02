@@ -6,7 +6,7 @@
 use az::{Az, Cast};
 use divrem::DivCeil;
 use fixed::traits::Fixed;
-use num_traits::{Zero, One};
+use num_traits::Zero;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 
